@@ -25,7 +25,7 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 }
 
 func (plugin *MetricsPlugin) RegisterMethods() {
-	rpcMethod := glightning.NewRpcMethod(&DiagnosticRpcMethod{}, "Example rpc method")
+	rpcMethod := glightning.NewRpcMethod(&DiagnosticRpcMethod{}, "Show diagnostic node")
 	rpcMethod.LongDesc = "Show the diagnostic data of the lightning network node"
 	rpcMethod.Category = "metrics"
 	plugin.Plugin.RegisterMethod(rpcMethod)

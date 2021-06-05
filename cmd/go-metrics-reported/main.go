@@ -30,7 +30,7 @@ func main() {
 
 func onInit(plugin *glightning.Plugin,
 	options map[string]glightning.Option, config *glightning.Config) {
-	fmt.Printf("successfully init'd! %s\n", config.RpcFile)
+	//TODO init proxy and read the ln config
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
