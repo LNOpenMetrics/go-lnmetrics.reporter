@@ -1,31 +1,43 @@
 package db
 
 import (
+	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+
+	log "github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 )
 
-type Database struct {
-	instance *DB
+type database struct {
+	instance *leveldb.DB
 }
 
-func (this *Database) InitDB(homedir String) err {
-	db, err := leveldb.OpenFile("path/to/db", nil)
+var instance database
+
+func GetInstance() *database {
+	return &instance
+}
+
+func (this *database) InitDB(homedir string) error {
+	path := homedir + "/db"
+	db, err := leveldb.OpenFile(path, nil)
 	if err != nil {
+		log.GetInstance().Error(err)
 		return err
 	}
+	log.GetInstance().Info("Created database at " + path)
 	this.instance = db
 	return nil
 }
 
-func (this *Database) PutValue(key String, value *interface{}) err {
-	return this.instance.Put([]byte(key), []byte(valye), nil)
+func (this *database) PutValue(key string, value interface{}) error {
+	return this.instance.Put([]byte(key), []byte(fmt.Sprintf("%v", value)), nil)
 }
 
-func (this *Database) GetValue(key String) (interface{}, err) {
-	return this.instance.Get([]byte(key), []byte(), nil)
+func (this *database) GetValue(key string) (interface{}, error) {
+	return this.instance.Get([]byte(key), nil)
 }
 
-func (this *Database) DeleteValue(key String) err {
+func (this *database) DeleteValue(key string) error {
 	return this.instance.Delete([]byte(key), nil)
 }
 

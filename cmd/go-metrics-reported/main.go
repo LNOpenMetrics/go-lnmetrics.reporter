@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	maker "github.com/OpenLNMetrics/go-metrics-reported/init/persistence"
 	metrics "github.com/OpenLNMetrics/go-metrics-reported/internal/plugin"
-	log "github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
 	"github.com/niftynei/glightning/glightning"
 )
@@ -27,7 +27,8 @@ func main() {
 
 	err := plugin.Start(os.Stdin, os.Stdout)
 	if err != nil {
-		fmt.Println(err)
+		log.GetInstance().Error(err)
+		panic(err)
 	}
 }
 
@@ -37,14 +38,17 @@ func onInit(plugin *glightning.Plugin,
 	log.GetInstance().Debug(options)
 	log.GetInstance().Debug("Node with the following configuration")
 	log.GetInstance().Debug(config)
-	err := maker.PrepareHomeDirectory(config.LightningDir)
+	metricsPath, err := maker.PrepareHomeDirectory(config.LightningDir)
 	if err != nil {
+		log.GetInstance().Error(err)
 		panic(err)
 	}
+	db.GetInstance().InitDB(*metricsPath)
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
-
+	method := event.Cmd.MethodName
+	log.GetInstance().Debug("hook throws by the following rpc command" + method)
 	metricsPlugin.HendlerRPCMessage(event)
 	return event.Continue(), nil
 }

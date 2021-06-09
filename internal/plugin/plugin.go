@@ -1,8 +1,9 @@
 package plugin
 
 import (
-	"fmt"
 	"github.com/niftynei/glightning/glightning"
+
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 )
 
 type MetricsPlugin struct {
@@ -17,9 +18,9 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 	}
 	switch method.(type) {
 	case glightning.CloseRequest:
-		fmt.Println("Close command received")
+		log.GetInstance().Debug("Close command received")
 	default:
-		fmt.Println("The node is up and runnning update the info")
+		log.GetInstance().Debug("The node is up and runnning update the info")
 	}
 	return nil
 }
