@@ -33,8 +33,12 @@ func (this *database) PutValue(key string, value interface{}) error {
 	return this.instance.Put([]byte(key), []byte(fmt.Sprintf("%v", value)), nil)
 }
 
-func (this *database) GetValue(key string) (interface{}, error) {
-	return this.instance.Get([]byte(key), nil)
+func (this *database) GetValue(key string) (string, error) {
+	value, err := this.instance.Get([]byte(key), nil)
+	if err != nil {
+		return "", err
+	}
+	return string(value), nil
 }
 
 func (this *database) DeleteValue(key string) error {
