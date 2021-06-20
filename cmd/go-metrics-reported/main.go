@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"runtime"
 	"time"
 
 	maker "github.com/OpenLNMetrics/go-metrics-reported/init/persistence"
@@ -28,7 +29,8 @@ func main() {
 
 	metricsPlugin.RegisterRecurrentEvt(30 * time.Minute)
 
-	one := metrics.NewMetricOne("", "")
+	sys := runtime.GOOS
+	one := metrics.NewMetricOne("", sys)
 	metricsPlugin.RegisterMetrics(1, one)
 
 	err := plugin.Start(os.Stdin, os.Stdout)
@@ -57,7 +59,7 @@ func onInit(plugin *glightning.Plugin,
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
 	method := event.Cmd.MethodName
-	log.GetInstance().Debug("hook throws by the following rpc command" + method)
+	log.GetInstance().Debug("hook throws by the following rpc command " + method)
 	metricsPlugin.HendlerRPCMessage(event)
 	return event.Continue(), nil
 }

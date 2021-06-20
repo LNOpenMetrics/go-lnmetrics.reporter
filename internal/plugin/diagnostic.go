@@ -1,11 +1,13 @@
 package plugin
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/niftynei/glightning/jrpc2"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 )
 
 type DiagnosticRpcMethod struct {
@@ -27,7 +29,21 @@ func (rpc *DiagnosticRpcMethod) New() interface{} {
 func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
 	switch instance.MetricId {
 	case 1:
-		return db.GetInstance().GetValue("metric_one")
+		//TODO: move the key in a unique place
+		key := "metric_one"
+		result, err := db.GetInstance().GetValue(key)
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("DB error for the key %s", key))
+			log.GetInstance().Error(fmt.Sprintf("Error is: ", err))
+			return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
+		}
+		var obj interface{}
+		err = json.Unmarshal([]byte(result), &obj)
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+			return nil, err
+		}
+		return obj, nil
 	default:
 		return nil, errors.New(fmt.Sprintf("ID metrics unknown"))
 	}

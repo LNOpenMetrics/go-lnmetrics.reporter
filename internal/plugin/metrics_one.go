@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
@@ -20,6 +22,9 @@ type Metric interface {
 	// Class this method when you want catch some event from
 	// c-lightning and make some operation on the metrics data.
 	UpdateWithMsg(message *Msg, lightning *glightning.Lightning) error
+
+	// convert the object into a json
+	ToJSON() (string, error)
 }
 
 //TODO move also in a common place
@@ -32,32 +37,31 @@ type Msg struct {
 // Wrap all useful information
 type status struct {
 	//node_id  string    `json:node_id`
-	timestamp time.Time `json:timestamp`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type MetricOne struct {
-	Metric
-	id           int
-	name         string `json:metric_name`
-	nodeId       string `json:node_id`
-	architecture string `json:architecture`
+	id           int    `json:"-"`
+	Name         string `json:"metric_name"`
+	NodeId       string `json:"node_id"`
+	Architecture string `json:"architecture"`
 	// TODO: Here we need to store a object?
 	// With an object we can add also some custom message
-	upTime []status `json:up_time`
+	UpTime []status `json:"up_time"`
 	// TODO: missing the check to other channels
 }
 
 // This method is required by the
 func NewMetricOne(nodeId string, architecture string) *MetricOne {
-	return &MetricOne{id: 1, name: "metric_one", nodeId: nodeId,
-		architecture: architecture, upTime: make([]status, 0)}
+	return &MetricOne{id: 1, Name: "metric_one", NodeId: nodeId,
+		Architecture: architecture, UpTime: make([]status, 0)}
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
-	log.GetInstance().Debug("On close event on metrics on called")
-	instance.upTime = append(instance.upTime,
-		status{timestamp: time.Now()})
-	return nil
+	log.GetInstance().Debug("Update event on metrics on called")
+	instance.UpTime = append(instance.UpTime,
+		status{Timestamp: time.Now().Unix()})
+	return instance.MakePersistent()
 }
 
 func (metric *MetricOne) UpdateWithMsg(message *Msg,
@@ -66,13 +70,28 @@ func (metric *MetricOne) UpdateWithMsg(message *Msg,
 }
 
 func (instance *MetricOne) MakePersistent() error {
-	return db.GetInstance().PutValue(instance.name, instance)
+	log.GetInstance().Debug(fmt.Sprintf("%s", instance))
+	json, err := instance.ToJSON()
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("JSON error %s", err))
+		return err
+	}
+	return db.GetInstance().PutValue(instance.Name, json)
 }
 
 //TODO: here the message is not useful, but we keep it
 func (instance *MetricOne) OnClose(msg *Msg) error {
-	log.GetInstance().Debug("On close event on metrics on called")
-	instance.upTime = append(instance.upTime,
-		status{timestamp: time.Now()})
+	log.GetInstance().Debug("On close event on metrics called")
+	instance.UpTime = append(instance.UpTime,
+		status{Timestamp: time.Now().Unix()})
 	return instance.MakePersistent()
+}
+
+func (instance *MetricOne) ToJSON() (string, error) {
+	json, err := json.Marshal(&instance)
+	if err != nil {
+		log.GetInstance().Error(err)
+		return "", err
+	}
+	return string(json), nil
 }
