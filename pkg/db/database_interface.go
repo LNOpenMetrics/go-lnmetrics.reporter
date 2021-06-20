@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 
@@ -30,7 +31,14 @@ func (this *database) InitDB(homedir string) error {
 }
 
 func (this *database) PutValue(key string, value interface{}) error {
-	return this.instance.Put([]byte(key), []byte(fmt.Sprintf("%v", value)), nil)
+	json, err := json.Marshal(&value)
+	if err != nil {
+		log.GetInstance().Error(err)
+		return err
+	}
+	log.GetInstance().Debug(
+		fmt.Sprintf("Storing value with key %s and value %s", key, json))
+	return this.instance.Put([]byte(key), []byte(json), nil)
 }
 
 func (this *database) GetValue(key string) (string, error) {

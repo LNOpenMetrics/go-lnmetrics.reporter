@@ -1,14 +1,15 @@
 package plugin
 
 import (
+	"errors"
 	"fmt"
 	"github.com/niftynei/glightning/jrpc2"
+
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 )
 
 type DiagnosticRpcMethod struct {
-	// all the error that will happen durng the metrics
-	errors   map[int][]string
-	memoryDB *MemoryDB
+	MetricId int `json:"metric_id"`
 }
 
 func (rpc *DiagnosticRpcMethod) Name() string {
@@ -16,18 +17,18 @@ func (rpc *DiagnosticRpcMethod) Name() string {
 }
 
 func NewMetricPlugin() *DiagnosticRpcMethod {
-	return &DiagnosticRpcMethod{errors: make(map[int][]string),
-		memoryDB: &MemoryDB{nodeId: "", metrics: make(map[int]*Metric)}}
+	return &DiagnosticRpcMethod{}
 }
 
 func (rpc *DiagnosticRpcMethod) New() interface{} {
 	return NewMetricPlugin()
 }
 
-func (rpc *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
-	return fmt.Sprintf("Here will be the diagnostic"), nil
-}
-
-func (rpc *DiagnosticRpcMethod) UpdateWithMessage(msg *Msg) (jrpc2.Result, error) {
-	return fmt.Sprintf("Here will be the diagnostic"), nil
+func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
+	switch instance.MetricId {
+	case 1:
+		return db.GetInstance().GetValue("metric_one")
+	default:
+		return nil, errors.New(fmt.Sprintf("ID metrics unknown"))
+	}
 }
