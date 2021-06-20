@@ -44,6 +44,7 @@ func (this *database) PutValue(key string, value interface{}) error {
 func (this *database) GetValue(key string) (string, error) {
 	value, err := this.instance.Get([]byte(key), nil)
 	if err != nil {
+		log.GetInstance().Error(err)
 		return "", err
 	}
 	return string(value), nil

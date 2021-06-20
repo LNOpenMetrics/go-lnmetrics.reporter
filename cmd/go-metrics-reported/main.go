@@ -18,7 +18,7 @@ func main() {
 	plugin := glightning.NewPlugin(onInit)
 
 	metricsPlugin = metrics.MetricsPlugin{Plugin: plugin,
-		Metrics: make(map[int]*metrics.Metric), Rpc: nil}
+		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
 	plugin.RegisterHooks(&glightning.Hooks{
 		RpcCommand: OnRpcCommand,
@@ -27,6 +27,9 @@ func main() {
 	metricsPlugin.RegisterMethods()
 
 	metricsPlugin.RegisterRecurrentEvt(30 * time.Minute)
+
+	one := metrics.NewMetricOne("", "")
+	metricsPlugin.RegisterMetrics(1, one)
 
 	err := plugin.Start(os.Stdin, os.Stdout)
 	if err != nil {

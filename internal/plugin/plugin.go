@@ -12,7 +12,7 @@ import (
 
 type MetricsPlugin struct {
 	Plugin  *glightning.Plugin
-	Metrics map[int]*Metric
+	Metrics map[int]Metric
 	Rpc     *glightning.Lightning
 }
 
@@ -47,7 +47,7 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 	return nil
 }
 
-func (plugin *MetricsPlugin) RegisterMetrics(id int, metric *Metric) error {
+func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
 		//TODO add more information in the error message
@@ -65,16 +65,16 @@ func (plugin *MetricsPlugin) RegisterMethods() {
 	plugin.Plugin.RegisterMethod(rpcMethod)
 }
 
-func (instance *MetricsPlugin) callUpdateOnMetric(metric *Metric, msg *Msg,
+func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg,
 	corutine *sync.WaitGroup) {
 	defer corutine.Done()
-	(*metric).UpdateWithMsg(msg, instance.Rpc)
+	metric.UpdateWithMsg(msg, instance.Rpc)
 }
 
-func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric *Metric,
+func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric,
 	corutine *sync.WaitGroup) {
 	defer corutine.Done()
-	(*metric).Update(instance.Rpc)
+	metric.Update(instance.Rpc)
 }
 
 func (instance *MetricsPlugin) RegisterRecurrentEvt(after time.Duration) {

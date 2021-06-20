@@ -11,7 +11,7 @@ import (
 //TODO: export the interface in anther method
 type Metric interface {
 	// Call this method when the close rpc method is called
-	OnClose() error
+	OnClose(msg *Msg) error
 	// Call this method to make the status of the metrics persistent
 	MakePersistent() error
 	// Call this method when you want update all the metrics without
@@ -48,7 +48,7 @@ type MetricOne struct {
 }
 
 // This method is required by the
-func New(nodeId string, architecture string) *MetricOne {
+func NewMetricOne(nodeId string, architecture string) *MetricOne {
 	return &MetricOne{id: 1, name: "metric_one", nodeId: nodeId,
 		architecture: architecture, upTime: make([]status, 0)}
 }
