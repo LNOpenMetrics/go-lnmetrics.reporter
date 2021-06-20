@@ -78,7 +78,7 @@ func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg,
 func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg,
 	corutine *sync.WaitGroup) {
 	defer corutine.Done()
-	err := metric.OnClose(msg)
+	err := metric.OnClose(msg, instance.Rpc)
 	if err != nil {
 		log.GetInstance().Error(err)
 	}

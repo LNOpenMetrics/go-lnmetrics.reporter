@@ -13,7 +13,7 @@ import (
 //TODO: export the interface in anther method
 type Metric interface {
 	// Call this method when the close rpc method is called
-	OnClose(msg *Msg) error
+	OnClose(msg *Msg, lightning *glightning.Lightning) error
 	// Call this method to make the status of the metrics persistent
 	MakePersistent() error
 	// Call this method when you want update all the metrics without
@@ -37,6 +37,7 @@ type Msg struct {
 // Wrap all useful information
 type status struct {
 	//node_id  string    `json:node_id`
+	Channels  int   `json:"channels"`
 	Timestamp int64 `json:"timestamp"`
 }
 
@@ -59,8 +60,14 @@ func NewMetricOne(nodeId string, architecture string) *MetricOne {
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("Update event on metrics on called")
+	/*listFunds, err := lightning.ListFunds()
+	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}*/
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix()})
+		status{Timestamp: time.Now().Unix(), Channels: 0})
 	return instance.MakePersistent()
 }
 
@@ -80,10 +87,15 @@ func (instance *MetricOne) MakePersistent() error {
 }
 
 //TODO: here the message is not useful, but we keep it
-func (instance *MetricOne) OnClose(msg *Msg) error {
+func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
+	/*listFunds, err := lightning.ListFunds()
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	} */
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix()})
+		status{Timestamp: time.Now().Unix(), Channels: 0})
 	return instance.MakePersistent()
 }
 

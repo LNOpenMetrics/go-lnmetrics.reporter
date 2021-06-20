@@ -18,9 +18,6 @@ func PrepareHomeDirectory(lightningPath string) (*string, error) {
 		log.GetInstance().Debug("Home dir " + lightningPath)
 		path := lightningPath + "/metrics"
 		_, err := os.Stat(path)
-		if err != nil {
-			return nil, err
-		}
 		if !os.IsNotExist(err) {
 			return &path, nil
 		}
