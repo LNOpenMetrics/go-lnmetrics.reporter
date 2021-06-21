@@ -75,7 +75,7 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix(), Channels: 0})
+		status{Timestamp: time.Now().Unix(), Channels: len(listFunds.Channels)})
 	return instance.MakePersistent()
 }
 
