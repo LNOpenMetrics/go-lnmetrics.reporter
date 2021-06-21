@@ -52,20 +52,28 @@ type MetricOne struct {
 	// TODO: missing the check to other channels
 }
 
+var MetricsSupported map[int]string
+
+func init() {
+	log.GetInstance().Debug("Init metrics map with all the name")
+	MetricsSupported = make(map[int]string)
+	MetricsSupported[1] = "metric_one"
+}
+
 // This method is required by the
 func NewMetricOne(nodeId string, architecture string) *MetricOne {
-	return &MetricOne{id: 1, Name: "metric_one", NodeId: nodeId,
+	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
 		Architecture: architecture, UpTime: make([]status, 0)}
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("Update event on metrics on called")
-	/*listFunds, err := lightning.ListFunds()
+	listFunds, err := lightning.ListFunds()
 	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
-	}*/
+	}
 	instance.UpTime = append(instance.UpTime,
 		status{Timestamp: time.Now().Unix(), Channels: 0})
 	return instance.MakePersistent()
@@ -89,13 +97,13 @@ func (instance *MetricOne) MakePersistent() error {
 //TODO: here the message is not useful, but we keep it
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	/*listFunds, err := lightning.ListFunds()
+	listFunds, err := lightning.ListFunds()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
-	} */
+	}
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix(), Channels: 0})
+		status{Timestamp: time.Now().Unix(), Channels: len(listFunds.Channels)})
 	return instance.MakePersistent()
 }
 

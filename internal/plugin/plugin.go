@@ -18,14 +18,7 @@ type MetricsPlugin struct {
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
 	command := event.Cmd
-	//method, err := command.Get()
 	log.GetInstance().Debug(fmt.Sprintf("Handler method %s", command.MethodName))
-	//log.GetInstance().Debug(method)
-	//if err != nil {
-	//	log.GetInstance().Error(fmt.Sprintf("Error with cause %s", err))
-	//	return err
-	//}
-	//log.GetInstance().Debug(fmt.Sprintf("Type of the method: %s ", reflect.TypeOf(method).String()))
 	switch command.MethodName {
 	case "stop":
 		// Share to all the metrics, so we need a global method that iterate over the metrics map
@@ -40,13 +33,7 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 		courutinesWait.Wait()
 		log.GetInstance().Debug("Close command received")
 	default:
-		var courutinesWait sync.WaitGroup
-		courutinesWait.Add(len(plugin.Metrics))
-		for _, metric := range plugin.Metrics {
-			plugin.callUpdateOnMetricNoMsg(metric, &courutinesWait)
-		}
-		courutinesWait.Wait()
-		log.GetInstance().Debug("The node is up and runnning update the info")
+		return nil
 	}
 	return nil
 }

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"runtime"
 	"time"
@@ -29,10 +32,6 @@ func main() {
 
 	metricsPlugin.RegisterRecurrentEvt(30 * time.Minute)
 
-	sys := runtime.GOOS
-	one := metrics.NewMetricOne("", sys)
-	metricsPlugin.RegisterMetrics(1, one)
-
 	err := plugin.Start(os.Stdin, os.Stdout)
 	if err != nil {
 		log.GetInstance().Error(err)
@@ -55,6 +54,17 @@ func onInit(plugin *glightning.Plugin,
 		panic(err)
 	}
 	db.GetInstance().InitDB(*metricsPath)
+
+	metric, err := loadMetricIfExist(1)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
+		panic(err)
+	}
+
+	if err := metricsPlugin.RegisterMetrics(1, metric); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
+		panic(err)
+	}
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
@@ -62,4 +72,33 @@ func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResp
 	log.GetInstance().Debug("hook throws by the following rpc command " + method)
 	metricsPlugin.HendlerRPCMessage(event)
 	return event.Continue(), nil
+}
+
+//TODO generalize the return type
+func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
+	metricName, ok := metrics.MetricsSupported[id]
+	if ok == false {
+		log.GetInstance().Info(fmt.Sprintf("Metric with id %d not supported", id))
+		return nil, errors.New(fmt.Sprintf("Metric with id %s not supported", id))
+	}
+	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %s end name", id, metricName))
+	//	metricDb := ""
+	//err := errors.New("alibaba")
+	metricDb, err := db.GetInstance().GetValue(metricName)
+	log.GetInstance().Info("value on db us " + metricDb)
+	if err != nil {
+		log.GetInstance().Info("No metrics available yet")
+		log.GetInstance().Debug(fmt.Sprintf("Error received %s", err))
+		sys := runtime.GOOS
+		one := metrics.NewMetricOne("", sys)
+		return one, nil
+	}
+	log.GetInstance().Info("Metrics available on DB, loading them.")
+	var metric metrics.MetricOne
+	err = json.Unmarshal([]byte(metricDb), &metric)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
+		return nil, err
+	}
+	return &metric, nil
 }

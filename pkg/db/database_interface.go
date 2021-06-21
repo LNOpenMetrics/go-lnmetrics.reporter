@@ -36,9 +36,11 @@ func (this *database) PutValue(key string, value string) error {
 }
 
 func (this *database) GetValue(key string) (string, error) {
+	log.GetInstance().Debug(fmt.Sprintf("Search on Db value with key %s", key))
 	value, err := this.instance.Get([]byte(key), nil)
+	log.GetInstance().Debug("Return value from db")
 	if err != nil {
-		log.GetInstance().Error(err)
+		log.GetInstance().Error(fmt.Sprintf("%s", err))
 		return "", err
 	}
 	return string(value), nil
