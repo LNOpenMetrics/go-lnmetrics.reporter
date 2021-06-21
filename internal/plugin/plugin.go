@@ -18,7 +18,6 @@ type MetricsPlugin struct {
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
 	command := event.Cmd
-	log.GetInstance().Debug(fmt.Sprintf("Handler method %s", command.MethodName))
 	switch command.MethodName {
 	case "stop":
 		// Share to all the metrics, so we need a global method that iterate over the metrics map
@@ -76,7 +75,7 @@ func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric,
 	defer corutine.Done()
 	err := metric.Update(instance.Rpc)
 	if err != nil {
-		log.GetInstance().Error(err)
+		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
 }
 

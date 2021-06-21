@@ -48,6 +48,7 @@ func onInit(plugin *glightning.Plugin,
 	rpc := glightning.NewLightning()
 	// TODO the library have the propriety to get the rpc file name?
 	rpc.StartUp("lightning-rpc", config.LightningDir)
+	metricsPlugin.Rpc = rpc
 	metricsPath, err := maker.PrepareHomeDirectory(config.LightningDir)
 	if err != nil {
 		log.GetInstance().Error(err)
