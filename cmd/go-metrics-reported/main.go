@@ -11,6 +11,7 @@ import (
 	metrics "github.com/OpenLNMetrics/go-metrics-reported/internal/plugin"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+
 	"github.com/niftynei/glightning/glightning"
 )
 
@@ -71,13 +72,11 @@ func onInit(plugin *glightning.Plugin,
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
-	method := event.Cmd.MethodName
-	log.GetInstance().Debug("hook throws by the following rpc command " + method)
 	metricsPlugin.HendlerRPCMessage(event)
 	return event.Continue(), nil
 }
 
-//TODO generalize the return type
+// FIXME: generalize the return type
 func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
 	metricName, ok := metrics.MetricsSupported[id]
 	if ok == false {

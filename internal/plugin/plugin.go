@@ -3,9 +3,9 @@ package plugin
 import (
 	"errors"
 	"fmt"
-	"github.com/niftynei/glightning/glightning"
 	"time"
 
+	"github.com/niftynei/glightning/glightning"
 	"github.com/robfig/cron/v3"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"

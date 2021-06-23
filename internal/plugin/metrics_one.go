@@ -10,30 +10,6 @@ import (
 	"github.com/niftynei/glightning/glightning"
 )
 
-//TODO: export the interface in anther method
-type Metric interface {
-	// Call this method when the close rpc method is called
-	OnClose(msg *Msg, lightning *glightning.Lightning) error
-	// Call this method to make the status of the metrics persistent
-	MakePersistent() error
-	// Call this method when you want update all the metrics without
-	// some particular event throw from c-lightning
-	Update(lightning *glightning.Lightning) error
-	// Class this method when you want catch some event from
-	// c-lightning and make some operation on the metrics data.
-	UpdateWithMsg(message *Msg, lightning *glightning.Lightning) error
-
-	// convert the object into a json
-	ToJSON() (string, error)
-}
-
-//TODO move also in a common place
-type Msg struct {
-	// The message is from a command? if not it is nil
-	cmd    string
-	params map[string]interface{}
-}
-
 // Wrap all useful information
 type status struct {
 	//node_id  string    `json:node_id`
@@ -94,16 +70,13 @@ func (instance *MetricOne) MakePersistent() error {
 	return db.GetInstance().PutValue(instance.Name, json)
 }
 
-//TODO: here the message is not useful, but we keep it
+// here the message is not useful, but we keep it only for future evolution
+// or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	listFunds, err := lightning.ListFunds()
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return err
-	}
+	lastValue := instance.UpTime[len(instance.UpTime)-1]
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix(), Channels: len(listFunds.Channels)})
+		status{Timestamp: time.Now().Unix(), Channels: lastValue.Channels})
 	return instance.MakePersistent()
 }
 
