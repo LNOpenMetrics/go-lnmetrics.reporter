@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/niftynei/glightning/glightning"
-	"sync"
 	"time"
+
+	"github.com/robfig/cron/v3"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 )
@@ -24,13 +25,10 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 		params := make(map[string]interface{})
 		params["timestamp"] = time.Now()
 		msg := Msg{"stop", params}
-		var courutinesWait sync.WaitGroup
-		courutinesWait.Add(len(plugin.Metrics))
 		for _, metric := range plugin.Metrics {
-			plugin.callOnStopOnMetrics(metric, &msg, &courutinesWait)
+			go plugin.callOnStopOnMetrics(metric, &msg)
 		}
-		courutinesWait.Wait()
-		log.GetInstance().Debug("Close command received")
+		log.GetInstance().Info("Close command received")
 	default:
 		return nil
 	}
@@ -41,7 +39,8 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
 		//TODO add more information in the error message
-		return errors.New("Metrics already registered")
+		log.GetInstance().Error(fmt.Sprintf("Metrics with is %d already registered."))
+		return errors.New(fmt.Sprintf("Metrics with is %d already registered."))
 	}
 	plugin.Metrics[id] = metric
 	return nil
@@ -55,38 +54,30 @@ func (plugin *MetricsPlugin) RegisterMethods() {
 	plugin.Plugin.RegisterMethod(rpcMethod)
 }
 
-func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg,
-	corutine *sync.WaitGroup) {
-	defer corutine.Done()
+func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 	metric.UpdateWithMsg(msg, instance.Rpc)
 }
 
-func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg,
-	corutine *sync.WaitGroup) {
-	defer corutine.Done()
+func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 	err := metric.OnClose(msg, instance.Rpc)
 	if err != nil {
 		log.GetInstance().Error(err)
 	}
 }
 
-func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric,
-	corutine *sync.WaitGroup) {
-	defer corutine.Done()
+func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	err := metric.Update(instance.Rpc)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
 }
 
-func (instance *MetricsPlugin) RegisterRecurrentEvt(after time.Duration) {
-	time.AfterFunc(after, func() {
-		log.GetInstance().Debug("Recurrent event called")
-		var courutinesWait sync.WaitGroup
-		courutinesWait.Add(len(instance.Metrics))
+func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) *cron.Cron {
+	timer := cron.New()
+	timer.AddFunc("", func() {
 		for _, metric := range instance.Metrics {
-			instance.callUpdateOnMetricNoMsg(metric, &courutinesWait)
+			go instance.callUpdateOnMetricNoMsg(metric)
 		}
-		courutinesWait.Wait()
 	})
+	return timer
 }
