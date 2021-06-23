@@ -74,9 +74,12 @@ func (instance *MetricOne) MakePersistent() error {
 // or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	lastValue := instance.UpTime[len(instance.UpTime)-1]
+	lastValue := 0
+	if len(instance.UpTime) > 0 {
+		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
+	}
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix(), Channels: lastValue.Channels})
+		status{Timestamp: time.Now().Unix(), Channels: lastValue})
 	return instance.MakePersistent()
 }
 
