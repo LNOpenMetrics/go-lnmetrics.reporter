@@ -67,6 +67,7 @@ func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 }
 
 func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
+	log.GetInstance().Debug("Calling Update on metrics")
 	err := metric.Update(instance.Rpc)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
@@ -75,7 +76,8 @@ func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 
 func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	instance.Cron = cron.New()
-	instance.Cron.AddFunc("", func() {
+	instance.Cron.AddFunc(after, func() {
+		log.GetInstance().Debug("Calling recurrent function")
 		for _, metric := range instance.Metrics {
 			go instance.callUpdateOnMetricNoMsg(metric)
 		}
