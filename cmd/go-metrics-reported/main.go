@@ -32,8 +32,8 @@ func main() {
 
 	// To set the time the following doc is followed
 	// https://pkg.go.dev/github.com/robfig/cron?utm_source=godoc
-	timer := metricsPlugin.RegisterRecurrentEvt("@every 30m")
-	timer.Start()
+	metricsPlugin.RegisterRecurrentEvt("@every 30m")
+	metricsPlugin.Cron.Start()
 
 	err := plugin.Start(os.Stdin, os.Stdout)
 	if err != nil {

@@ -15,6 +15,7 @@ type MetricsPlugin struct {
 	Plugin  *glightning.Plugin
 	Metrics map[int]Metric
 	Rpc     *glightning.Lightning
+	Cron    *cron.Cron
 }
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
@@ -72,12 +73,11 @@ func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	}
 }
 
-func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) *cron.Cron {
-	timer := cron.New()
-	timer.AddFunc("", func() {
+func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
+	instance.Cron = cron.New()
+	instance.Cron.AddFunc("", func() {
 		for _, metric := range instance.Metrics {
 			go instance.callUpdateOnMetricNoMsg(metric)
 		}
 	})
-	return timer
 }
