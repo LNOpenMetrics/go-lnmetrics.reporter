@@ -29,6 +29,7 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 		for _, metric := range plugin.Metrics {
 			go plugin.callOnStopOnMetrics(metric, &msg)
 		}
+		plugin.Cron.Stop()
 		log.GetInstance().Info("Close command received")
 	default:
 		return nil
