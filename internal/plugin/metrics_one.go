@@ -13,8 +13,10 @@ import (
 // Wrap all useful information
 type status struct {
 	//node_id  string    `json:node_id`
-	Channels  int   `json:"channels"`
-	Timestamp int64 `json:"timestamp"`
+	Event     string `json:"event"`
+	Channels  int    `json:"channels"`
+	Forwords  int    `json:"forwords"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 type MetricOne struct {
@@ -50,8 +52,16 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
+	listForwords, err := lightning.ListForwards()
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix(), Channels: len(listFunds.Channels)})
+		status{Event: "on_update",
+			Timestamp: time.Now().Unix(),
+			Channels:  len(listFunds.Channels),
+			Forwords:  len(listForwords)})
 	return instance.MakePersistent()
 }
 
@@ -75,11 +85,15 @@ func (instance *MetricOne) MakePersistent() error {
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	lastValue := 0
+	sizeForwords := 0
 	if len(instance.UpTime) > 0 {
 		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
+		sizeForwords = instance.UpTime[len(instance.UpTime)-1].Forwords
 	}
 	instance.UpTime = append(instance.UpTime,
-		status{Timestamp: time.Now().Unix(), Channels: lastValue})
+		status{Event: "on_close",
+			Timestamp: time.Now().Unix(),
+			Channels:  lastValue, Forwords: sizeForwords})
 	return instance.MakePersistent()
 }
 
