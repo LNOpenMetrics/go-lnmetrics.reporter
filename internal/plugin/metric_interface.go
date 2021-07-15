@@ -6,6 +6,8 @@ import (
 
 // All the metrics need to respect this interface
 type Metric interface {
+	// call this to initialized the plugin
+	OnInit(lightning *glightning.Lightning) error
 	// Call this method when the close rpc method is called
 	OnClose(msg *Msg, lightning *glightning.Lightning) error
 	// Call this method to make the status of the metrics persistent

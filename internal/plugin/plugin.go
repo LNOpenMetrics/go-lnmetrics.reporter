@@ -84,3 +84,18 @@ func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
 		}
 	})
 }
+
+func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
+	duration, err := time.ParseDuration(after)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error in the on time evt: %s", err))
+		return
+	}
+	time.AfterFunc(duration, func() {
+		log.GetInstance().Debug("Calling on time function function")
+		// TODO: Should C-Lightning send a on init event like notification?
+		for _, metric := range instance.Metrics {
+			go metric.OnInit(instance.Rpc)
+		}
+	})
+}
