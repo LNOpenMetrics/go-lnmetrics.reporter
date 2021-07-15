@@ -125,7 +125,9 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
-	listForwords, err := lightning.ListForwards()
+	instance.collectInfoChannels(lightning, listFunds.Channels)
+
+	listForwards, err := lightning.ListForwards()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
@@ -134,7 +136,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		&status{Event: "on_start",
 			Timestamp: time.Now().Unix(),
 			Channels:  len(listFunds.Channels),
-			Forwords:  len(listForwords)})
+			Forwords:  len(listForwards)})
 	return instance.MakePersistent()
 
 	return nil
@@ -148,7 +150,9 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
-	listForwords, err := lightning.ListForwards()
+	instance.collectInfoChannels(lightning, listFunds.Channels)
+
+	listForwards, err := lightning.ListForwards()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
@@ -157,7 +161,7 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		&status{Event: "on_update",
 			Timestamp: time.Now().Unix(),
 			Channels:  len(listFunds.Channels),
-			Forwords:  len(listForwords)})
+			Forwords:  len(listForwards)})
 	return instance.MakePersistent()
 }
 
