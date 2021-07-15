@@ -60,18 +60,24 @@ type statusChannel struct {
 	Public bool `json:"public"`
 	// information about the direction of the channel: out, in, mutual.
 	Direction string `json:"direction"`
-
+	// Status of the channel
 	Status string `json:"status"`
-
+	// Color of the node
 	Color string `json:"color"`
 }
 
 type MetricOne struct {
-	id           int              `json:"-"`
-	Name         string           `json:"metric_name"`
-	NodeId       string           `json:"node_id"`
-	Architecture string           `json:"architecture"`
-	UpTime       []*status        `json:"up_time"`
+	// Internal id to identify the metric
+	id int `json:"-"`
+	// Name of the metrics
+	Name   string `json:"metric_name"`
+	NodeId string `json:"node_id"`
+	Color  string `json:"color"`
+	// architecture of the system
+	Architecture string `json:"architecture"`
+	// array of the up_time
+	UpTime []*status `json:"up_time"`
+	// array of channel information
 	ChannelsInfo []*statusChannel `json:"channels_info"`
 }
 
@@ -99,7 +105,39 @@ func init() {
 func NewMetricOne(nodeId string, architecture string) *MetricOne {
 	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
 		Architecture: architecture, UpTime: make([]*status, 0),
-		ChannelsInfo: make([]*statusChannel, 0)}
+		ChannelsInfo: make([]*statusChannel, 0), Color: ""}
+}
+
+func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
+	getInfo, err := lightning.GetInfo()
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
+		return err
+	}
+
+	instance.NodeId = getInfo.Id
+	instance.Color = getInfo.Color
+
+	log.GetInstance().Debug("Init event on metrics on called")
+	listFunds, err := lightning.ListFunds()
+	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}
+	listForwords, err := lightning.ListForwards()
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}
+	instance.UpTime = append(instance.UpTime,
+		&status{Event: "on_start",
+			Timestamp: time.Now().Unix(),
+			Channels:  len(listFunds.Channels),
+			Forwords:  len(listForwords)})
+	return instance.MakePersistent()
+
+	return nil
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {

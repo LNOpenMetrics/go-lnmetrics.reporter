@@ -33,6 +33,7 @@ func main() {
 	// To set the time the following doc is followed
 	// https://pkg.go.dev/github.com/robfig/cron?utm_source=godoc
 	metricsPlugin.RegisterRecurrentEvt("@every 30m")
+
 	metricsPlugin.Cron.Start()
 
 	err := plugin.Start(os.Stdin, os.Stdout)
@@ -69,6 +70,8 @@ func onInit(plugin *glightning.Plugin,
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
+
+	metricsPlugin.RegisterOneTimeEvt("30s")
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
