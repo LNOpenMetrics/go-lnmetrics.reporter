@@ -1,0 +1,33 @@
+name: Build and test Go
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { OS: "linux", ARCH: "386" }
+          - { OS: "linux", ARCH: "amd64" }
+          - { OS: "linux", ARCH: "arm" }
+          - { OS: "linux", ARCH: "arm64" }
+          - { OS: "darwin", ARCH: "amd64" }
+    steps:
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+
+      - name: Check out source code
+        uses: actions/checkout@v1
+
+      - name: Build
+				env: 
+          - GOPROXY: "https://proxy.golang.org"
+        run: make build OS=${{ matrix.OS }} ARCH=${{ matrix.ARCH }}
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v2
+        with:
+          path: go-lnmetrics-*
