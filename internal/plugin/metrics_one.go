@@ -34,7 +34,7 @@ type status struct {
 	// how many channels the node have
 	Channels int `json:"channels"`
 	// how many payments it forwords
-	Forwords int `json:"forwords"`
+	Forwards int `json:"forwards"`
 	// unix time where the check is made.
 	Timestamp int64 `json:"timestamp"`
 }
@@ -51,7 +51,7 @@ type statusChannel struct {
 	// the capacity of the channel
 	Capacity uint64 `json:"capacity"`
 	// how payment the channel forwords
-	Forwords []*PaymentInfo `json:"forwords"`
+	Forwards []*PaymentInfo `json:"forwards"`
 	// The node answer from the ping operation
 	UpTimes []int64 `json:"up_times"`
 	// the node is ready to receive payment to share?
@@ -136,7 +136,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		&status{Event: "on_start",
 			Timestamp: time.Now().Unix(),
 			Channels:  len(listFunds.Channels),
-			Forwords:  len(listForwards)})
+			Forwards:  len(listForwards)})
 	return instance.MakePersistent()
 
 	return nil
@@ -161,7 +161,7 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		&status{Event: "on_update",
 			Timestamp: time.Now().Unix(),
 			Channels:  len(listFunds.Channels),
-			Forwords:  len(listForwards)})
+			Forwards:  len(listForwards)})
 	return instance.MakePersistent()
 }
 
@@ -185,15 +185,15 @@ func (instance *MetricOne) MakePersistent() error {
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	lastValue := 0
-	sizeForwords := 0
+	sizeForwards := 0
 	if len(instance.UpTime) > 0 {
 		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
-		sizeForwords = instance.UpTime[len(instance.UpTime)-1].Forwords
+		sizeForwards = instance.UpTime[len(instance.UpTime)-1].Forwards
 	}
 	instance.UpTime = append(instance.UpTime,
 		&status{Event: "on_close",
 			Timestamp: time.Now().Unix(),
-			Channels:  lastValue, Forwords: sizeForwords})
+			Channels:  lastValue, Forwards: sizeForwards})
 	return instance.MakePersistent()
 }
 
@@ -259,7 +259,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, c
 		upTimes[0] = timestamp
 		// TODO: Could be good to have a information about the direction of the channel
 		newInfoChannel := statusChannel{NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
-			Capacity: channel.ChannelSatoshi, Forwords: info.Forwards,
+			Capacity: channel.ChannelSatoshi, Forwards: info.Forwards,
 			UpTimes: upTimes, Online: channel.Connected,
 			Direction: info.Direction, Status: channel.State}
 		instance.ChannelsInfo[shortChannelId] = &newInfoChannel
