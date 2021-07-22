@@ -46,12 +46,14 @@ type statusChannel struct {
 	NodeId string `json:"node_id"`
 	// label of the node
 	NodeAlias string `json:"node_alias"`
+	// Color of the node
+	Color string `json:"color"`
 	// the capacity of the channel
 	Capacity uint64 `json:"capacity"`
 	// how payment the channel forwords
 	Forwords []*PaymentInfo `json:"forwords"`
 	// The node answer from the ping operation
-	Timestamp int64 `json:"timestamp"`
+	UpTimes []int64 `json:"up_times"`
 	// the node is ready to receive payment to share?
 	Online bool `json:"online"`
 	// last message (channel_update) received from the gossip
@@ -62,8 +64,6 @@ type statusChannel struct {
 	Direction string `json:"direction"`
 	// Status of the channel
 	Status string `json:"status"`
-	// Color of the node
-	Color string `json:"color"`
 }
 
 type MetricOne struct {
@@ -77,8 +77,8 @@ type MetricOne struct {
 	Architecture string `json:"architecture"`
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
-	// array of channel information
-	ChannelsInfo []*statusChannel `json:"channels_info"`
+	// map of informatonof channel information
+	ChannelsInfo map[string]*statusChannel `json:"channels_info"`
 }
 
 // FIXME: Move this in a separate file like a generic metrics file
@@ -105,7 +105,7 @@ func init() {
 func NewMetricOne(nodeId string, architecture string) *MetricOne {
 	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
 		Architecture: architecture, UpTime: make([]*status, 0),
-		ChannelsInfo: make([]*statusChannel, 0), Color: ""}
+		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
 }
 
 func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
@@ -208,7 +208,7 @@ func (instance *MetricOne) ToJSON() (string, error) {
 
 // private method of the module
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel) error {
-
+	cache := make(map[string]bool)
 	for _, channel := range channels {
 		err := instance.collectInfoChannel(lightning, channel)
 		if err != nil {
@@ -221,6 +221,19 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 			return nil
 		}
+		cache[channel.ShortChannelId] = true
+	}
+
+	// make intersection of the channels in the cache and a
+	// channels in the metrics plugin
+	// this is useful to remove the metrics over closed channels
+	// in the metrics one we are not interested to have a story of
+	// of the old channels (for the moments).
+	for key, _ := range instance.ChannelsInfo {
+		_, found := cache[key]
+		if !found {
+			delete(instance.ChannelsInfo, key)
+		}
 	}
 
 	return nil
@@ -228,6 +241,8 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 
 func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, channel *glightning.FundingChannel) error {
 
+	shortChannelId := channel.ShortChannelId
+	infoChannel, found := instance.ChannelsInfo[shortChannelId]
 	var timestamp int64 = 0
 	if instance.pingNode(lightning, channel.Id) {
 		timestamp = time.Now().Unix()
@@ -237,12 +252,24 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, c
 		log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
 		return err
 	}
-	// TODO: Could be good to have a information about the direction of the channel
-	infoChannel := statusChannel{NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
-		Capacity: channel.ChannelSatoshi, Forwords: info.Forwards,
-		Timestamp: timestamp, Online: channel.Connected,
-		Direction: info.Direction, Status: channel.State}
-	instance.ChannelsInfo = append(instance.ChannelsInfo, &infoChannel)
+
+	// A new channels found
+	if !found {
+		upTimes := make([]int64, 1)
+		upTimes[0] = timestamp
+		// TODO: Could be good to have a information about the direction of the channel
+		newInfoChannel := statusChannel{NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
+			Capacity: channel.ChannelSatoshi, Forwords: info.Forwards,
+			UpTimes: upTimes, Online: channel.Connected,
+			Direction: info.Direction, Status: channel.State}
+		instance.ChannelsInfo[shortChannelId] = &newInfoChannel
+	} else {
+		infoChannel.Capacity = channel.ChannelSatoshi
+		infoChannel.UpTimes = append(infoChannel.UpTimes, timestamp)
+		infoChannel.Color = info.Color
+		infoChannel.Online = channel.Connected
+		infoChannel.Status = channel.State
+	}
 	return nil
 }
 

@@ -51,8 +51,7 @@ func onInit(plugin *glightning.Plugin,
 	log.GetInstance().Debug(config)
 	metricsPlugin.Rpc = glightning.NewLightning()
 
-	// FIXME: Use the library to get the name of the rpc file.
-	metricsPlugin.Rpc.StartUp("lightning-rpc", config.LightningDir)
+	metricsPlugin.Rpc.StartUp(config.RpcFile, config.LightningDir)
 	metricsPath, err := maker.PrepareHomeDirectory(config.LightningDir)
 	if err != nil {
 		log.GetInstance().Error(err)
@@ -60,6 +59,8 @@ func onInit(plugin *glightning.Plugin,
 	}
 	db.GetInstance().InitDB(*metricsPath)
 
+	//TODO: Load all the metrics in the datatabase that are registered from
+	// the user
 	metric, err := loadMetricIfExist(1)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
@@ -87,8 +88,6 @@ func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
 		return nil, errors.New(fmt.Sprintf("Metric with id %s not supported", id))
 	}
 	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %s end name", id, metricName))
-	//	metricDb := ""
-	//err := errors.New("alibaba")
 	metricDb, err := db.GetInstance().GetValue(metricName)
 	log.GetInstance().Info("value on db us " + metricDb)
 	if err != nil {
