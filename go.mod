@@ -8,4 +8,5 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0
+	github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a
 )

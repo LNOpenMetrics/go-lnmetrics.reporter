@@ -7,7 +7,9 @@ import (
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+
 	"github.com/niftynei/glightning/glightning"
+	"github.com/zcalusic/sysinfo"
 )
 
 // Information about the Payment forward by the node
@@ -66,15 +68,25 @@ type statusChannel struct {
 	Status string `json:"status"`
 }
 
+type osInfo struct {
+	// Operating system name
+	OS string `json:"os"`
+	// Version of the Operating System
+	Version string `json:"version"`
+	// architecture of the system where the node is running
+	Architecture string `json:"architecture"`
+}
+
 type MetricOne struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
 	// Name of the metrics
-	Name   string `json:"metric_name"`
-	NodeId string `json:"node_id"`
-	Color  string `json:"color"`
-	// architecture of the system
-	Architecture string `json:"architecture"`
+	Name   string  `json:"metric_name"`
+	NodeId string  `json:"node_id"`
+	Color  string  `json:"color"`
+	OSInfo *osInfo `json:"os_info"`
+	// timezone where the node is located
+	Timezone string `json:"timezone"`
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
 	// map of informatonof channel information
@@ -102,9 +114,12 @@ func init() {
 }
 
 // This method is required by the
-func NewMetricOne(nodeId string, architecture string) *MetricOne {
+func NewMetricOne(nodeId string, sysInfo *sysinfo.SysInfo) *MetricOne {
 	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
-		Architecture: architecture, UpTime: make([]*status, 0),
+		OSInfo: &osInfo{OS: sysInfo.OS.Name,
+			Version:      sysInfo.OS.Version,
+			Architecture: sysInfo.OS.Architecture},
+		Timezone: sysInfo.Node.Timezone, UpTime: make([]*status, 0),
 		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
 }
 

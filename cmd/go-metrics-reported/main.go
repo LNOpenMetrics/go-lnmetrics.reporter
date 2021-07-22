@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 
 	maker "github.com/OpenLNMetrics/go-metrics-reported/init/persistence"
 	metrics "github.com/OpenLNMetrics/go-metrics-reported/internal/plugin"
@@ -13,6 +12,7 @@ import (
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
 	"github.com/niftynei/glightning/glightning"
+	"github.com/zcalusic/sysinfo"
 )
 
 var metricsPlugin metrics.MetricsPlugin
@@ -93,8 +93,9 @@ func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
 	if err != nil {
 		log.GetInstance().Info("No metrics available yet")
 		log.GetInstance().Debug(fmt.Sprintf("Error received %s", err))
-		sys := runtime.GOOS
-		one := metrics.NewMetricOne("", sys)
+		var sys sysinfo.SysInfo
+		sys.GetSysInfo()
+		one := metrics.NewMetricOne("", &sys)
 		return one, nil
 	}
 	log.GetInstance().Info("Metrics available on DB, loading them.")
