@@ -11,8 +11,8 @@ import (
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
+	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/niftynei/glightning/glightning"
-	"github.com/zcalusic/sysinfo"
 )
 
 var metricsPlugin metrics.MetricsPlugin
@@ -72,7 +72,7 @@ func onInit(plugin *glightning.Plugin,
 		panic(err)
 	}
 
-	metricsPlugin.RegisterOneTimeEvt("30s")
+	metricsPlugin.RegisterOneTimeEvt("10s")
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
@@ -93,9 +93,12 @@ func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
 	if err != nil {
 		log.GetInstance().Info("No metrics available yet")
 		log.GetInstance().Debug(fmt.Sprintf("Error received %s", err))
-		var sys sysinfo.SysInfo
-		sys.GetSysInfo()
-		one := metrics.NewMetricOne("", &sys)
+		sys, err := sysinfo.Host()
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error during get the system information, error description %s", err))
+			return nil, err
+		}
+		one := metrics.NewMetricOne("", sys.Info())
 		return one, nil
 	}
 	log.GetInstance().Info("Metrics available on DB, loading them.")

@@ -8,8 +8,8 @@ import (
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
+	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/niftynei/glightning/glightning"
-	"github.com/zcalusic/sysinfo"
 )
 
 // Information about the Payment forward by the node
@@ -114,12 +114,12 @@ func init() {
 }
 
 // This method is required by the
-func NewMetricOne(nodeId string, sysInfo *sysinfo.SysInfo) *MetricOne {
+func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
 		OSInfo: &osInfo{OS: sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
-			Architecture: sysInfo.OS.Architecture},
-		Timezone: sysInfo.Node.Timezone, UpTime: make([]*status, 0),
+			Architecture: sysInfo.Architecture},
+		Timezone: sysInfo.Timezone, UpTime: make([]*status, 0),
 		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
 }
 
