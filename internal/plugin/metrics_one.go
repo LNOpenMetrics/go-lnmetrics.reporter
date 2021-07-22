@@ -41,6 +41,12 @@ type status struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
+type channelStatus struct {
+	Timestamp int64 `json:"timestamp"`
+	// Status of the channel
+	Status string `json:"status"`
+}
+
 // Wrap all the information about the node that the own node
 // has some channel open.
 type statusChannel struct {
@@ -55,7 +61,7 @@ type statusChannel struct {
 	// how payment the channel forwords
 	Forwards []*PaymentInfo `json:"forwards"`
 	// The node answer from the ping operation
-	UpTimes []int64 `json:"up_times"`
+	UpTimes []*channelStatus `json:"up_times"`
 	// the node is ready to receive payment to share?
 	Online bool `json:"online"`
 	// last message (channel_update) received from the gossip
@@ -64,8 +70,6 @@ type statusChannel struct {
 	Public bool `json:"public"`
 	// information about the direction of the channel: out, in, mutual.
 	Direction string `json:"direction"`
-	// Status of the channel
-	Status string `json:"status"`
 }
 
 type osInfo struct {
@@ -269,21 +273,20 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, c
 	}
 
 	// A new channels found
+	channelStat := channelStatus{timestamp, channel.State}
 	if !found {
-		upTimes := make([]int64, 1)
-		upTimes[0] = timestamp
+		upTimes := make([]*channelStatus, 1)
+		upTimes[0] = &channelStat
 		// TODO: Could be good to have a information about the direction of the channel
 		newInfoChannel := statusChannel{NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
 			Capacity: channel.ChannelSatoshi, Forwards: info.Forwards,
-			UpTimes: upTimes, Online: channel.Connected,
-			Direction: info.Direction, Status: channel.State}
+			UpTimes: upTimes, Online: channel.Connected}
 		instance.ChannelsInfo[shortChannelId] = &newInfoChannel
 	} else {
 		infoChannel.Capacity = channel.ChannelSatoshi
-		infoChannel.UpTimes = append(infoChannel.UpTimes, timestamp)
+		infoChannel.UpTimes = append(infoChannel.UpTimes, &channelStat)
 		infoChannel.Color = info.Color
 		infoChannel.Online = channel.Connected
-		infoChannel.Status = channel.State
 	}
 	return nil
 }
