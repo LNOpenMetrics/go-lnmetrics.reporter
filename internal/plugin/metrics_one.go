@@ -359,6 +359,9 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, chann
 			continue
 		case "local_failed":
 			// store the information about the failure
+			if len(channelInfo.Forwards) == 0 {
+				continue
+			}
 			paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
 			paymentInfo.FailureReason = forward.FailReason
 			paymentInfo.FailureCode = forward.FailCode
