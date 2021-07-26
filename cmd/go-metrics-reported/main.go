@@ -80,8 +80,8 @@ func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResp
 	return event.Continue(), nil
 }
 
-// FIXME: generalize the return type
-func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
+//FIXME: Improve quality of Go style here
+func loadMetricIfExist(id int) (metrics.Metric, error) {
 	metricName, ok := metrics.MetricsSupported[id]
 	if ok == false {
 		log.GetInstance().Info(fmt.Sprintf("Metric with id %d not supported", id))
@@ -98,15 +98,26 @@ func loadMetricIfExist(id int) (*metrics.MetricOne, error) {
 			log.GetInstance().Error(fmt.Sprintf("Error during get the system information, error description %s", err))
 			return nil, err
 		}
-		one := metrics.NewMetricOne("", sys.Info())
-		return one, nil
+		switch id {
+		case 1:
+			one := metrics.NewMetricOne("", sys.Info())
+			return one, nil
+
+		default:
+			return nil, errors.New(fmt.Sprintf("Metric with id %d not supported", id))
+		}
 	}
 	log.GetInstance().Info("Metrics available on DB, loading them.")
-	var metric metrics.MetricOne
-	err = json.Unmarshal([]byte(metricDb), &metric)
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
-		return nil, err
+	switch id {
+	case 1:
+		var metric metrics.MetricOne
+		err = json.Unmarshal([]byte(metricDb), &metric)
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
+			return nil, err
+		}
+		return &metric, nil
+	default:
+		return nil, errors.New(fmt.Sprintf("Metric with id %d not supported", id))
 	}
-	return &metric, nil
 }
