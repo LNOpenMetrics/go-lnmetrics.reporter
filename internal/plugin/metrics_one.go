@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,6 +19,10 @@ type PaymentInfo struct {
 	Direction string `json:"direction"`
 	// the status of the channels is completed, failed or pending
 	Status string `json:"status"`
+	// The motivation for the failure
+	FailureReason string `json:"failure_reason"`
+	// The code of the failure
+	FailureCode int `json:"failure_code"`
 }
 
 // Only a wrapper to pass collected information about the channel
@@ -36,7 +41,7 @@ type status struct {
 	// how many channels the node have
 	Channels int `json:"channels"`
 	// how many payments it forwords
-	Forwards int `json:"forwards"`
+	Forwards *PaymentsSummary `json:"forwards"`
 	// unix time where the check is made.
 	Timestamp int64 `json:"timestamp"`
 }
@@ -79,6 +84,11 @@ type osInfo struct {
 	Version string `json:"version"`
 	// architecture of the system where the node is running
 	Architecture string `json:"architecture"`
+}
+
+type PaymentsSummary struct {
+	Completed uint64 `json:"completed"`
+	Failed    uint64 `json:"failed"`
 }
 
 type MetricOne struct {
@@ -151,11 +161,16 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
+	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}
 	instance.UpTime = append(instance.UpTime,
 		&status{Event: "on_start",
 			Timestamp: time.Now().Unix(),
 			Channels:  len(listFunds.Channels),
-			Forwards:  len(listForwards)})
+			Forwards:  statusPayments})
 	return instance.MakePersistent()
 
 	return nil
@@ -176,11 +191,18 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
+	// TODO: feel payment status
+	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}
 	instance.UpTime = append(instance.UpTime,
 		&status{Event: "on_update",
 			Timestamp: time.Now().Unix(),
 			Channels:  len(listFunds.Channels),
-			Forwards:  len(listForwards)})
+			Forwards:  statusPayments,
+		})
 	return instance.MakePersistent()
 }
 
@@ -190,7 +212,6 @@ func (metric *MetricOne) UpdateWithMsg(message *Msg,
 }
 
 func (instance *MetricOne) MakePersistent() error {
-	log.GetInstance().Debug(fmt.Sprintf("%s", instance))
 	json, err := instance.ToJSON()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("JSON error %s", err))
@@ -204,15 +225,15 @@ func (instance *MetricOne) MakePersistent() error {
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	lastValue := 0
-	sizeForwards := 0
+	forwards := &PaymentsSummary{0, 0}
 	if len(instance.UpTime) > 0 {
 		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
-		sizeForwards = instance.UpTime[len(instance.UpTime)-1].Forwards
+		forwards = instance.UpTime[len(instance.UpTime)-1].Forwards
 	}
 	instance.UpTime = append(instance.UpTime,
 		&status{Event: "on_close",
 			Timestamp: time.Now().Unix(),
-			Channels:  lastValue, Forwards: sizeForwards})
+			Channels:  lastValue, Forwards: forwards})
 	return instance.MakePersistent()
 }
 
@@ -223,6 +244,23 @@ func (instance *MetricOne) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(json), nil
+}
+
+func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, forwards []glightning.Forwarding) (*PaymentsSummary, error) {
+	statusPayments := PaymentsSummary{Completed: 0, Failed: 0}
+
+	for _, forward := range forwards {
+		switch forward.Status {
+		case "settled":
+			statusPayments.Completed++
+		case "failed", "local_failed":
+			statusPayments.Failed++
+		default:
+			return nil, errors.New(fmt.Sprintf("Status %s unexpected", forward.Status))
+		}
+	}
+
+	return &statusPayments, nil
 }
 
 // private method of the module
@@ -322,6 +360,19 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, chann
 			channelInfo.Forwards = append(channelInfo.Forwards, &PaymentInfo{Direction: ChannelDirections[1], Status: forward.Status})
 		} else if channel.ShortChannelId == forward.OutChannel {
 			channelInfo.Forwards = append(channelInfo.Forwards, &PaymentInfo{Direction: ChannelDirections[0], Status: forward.Status})
+		}
+
+		switch forward.Status {
+		case "settled", "failed":
+			// do nothings
+			continue
+		case "local_failed":
+			// store the information about the failure
+			paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
+			paymentInfo.FailureReason = forward.FailReason
+			paymentInfo.FailureCode = forward.FailCode
+		default:
+			return nil, errors.New(fmt.Sprintf("Status %s unexpected", forward.Status))
 		}
 	}
 	//TODO Adding support for the dual founding channels.
