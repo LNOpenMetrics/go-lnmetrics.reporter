@@ -27,24 +27,21 @@ func (rpc *DiagnosticRpcMethod) New() interface{} {
 }
 
 func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
-	switch instance.MetricId {
-	case 1:
-		//TODO: move the key in a unique place
-		key := "metric_one"
-		result, err := db.GetInstance().GetValue(key)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("DB error for the key %s", key))
-			log.GetInstance().Error(fmt.Sprintf("Error is: ", err))
-			return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
-		}
-		var obj interface{}
-		err = json.Unmarshal([]byte(result), &obj)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			return nil, err
-		}
-		return obj, nil
-	default:
+	key, found := MetricsSupported[instance.MetricId]
+	if !found {
 		return nil, errors.New(fmt.Sprintf("ID metrics unknown"))
 	}
+	result, err := db.GetInstance().GetValue(key)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("DB error for the key %s", key))
+		log.GetInstance().Error(fmt.Sprintf("Error is: ", err))
+		return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
+	}
+	var obj interface{}
+	err = json.Unmarshal([]byte(result), &obj)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, err
+	}
+	return obj, nil
 }

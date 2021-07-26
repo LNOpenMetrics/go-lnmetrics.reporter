@@ -4,6 +4,15 @@ import (
 	"github.com/niftynei/glightning/glightning"
 )
 
+// mapping the internal id with the name of the metrics.
+// the id is passed by the plugin RPC name.
+var MetricsSupported map[int]string
+
+// 0 = outcoming
+// 1 = incoming
+// 2 = mutual.
+var ChannelDirections map[int]string
+
 // All the metrics need to respect this interface
 type Metric interface {
 	// call this to initialized the plugin
@@ -18,7 +27,6 @@ type Metric interface {
 	// Class this method when you want catch some event from
 	// c-lightning and make some operation on the metrics data.
 	UpdateWithMsg(message *Msg, lightning *glightning.Lightning) error
-
 	// convert the object into a json
 	ToJSON() (string, error)
 }

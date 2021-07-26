@@ -107,15 +107,6 @@ type MetricOne struct {
 	ChannelsInfo map[string]*statusChannel `json:"channels_info"`
 }
 
-// FIXME: Move this in a separate file like a generic metrics file
-var MetricsSupported map[int]string
-
-// FIXME: Move this in a utils file to give the possibility also to other metrics to access to it
-// 0 = outcoming
-// 1 = incoming
-// 2 = mutual.
-var ChannelDirections map[int]string
-
 func init() {
 	log.GetInstance().Debug("Init metrics map with all the name")
 	MetricsSupported = make(map[int]string)
