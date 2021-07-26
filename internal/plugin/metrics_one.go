@@ -20,9 +20,9 @@ type PaymentInfo struct {
 	// the status of the channels is completed, failed or pending
 	Status string `json:"status"`
 	// The motivation for the failure
-	FailureReason string `json:"failure_reason"`
+	FailureReason string `json:"failure_reason,omitempty"`
 	// The code of the failure
-	FailureCode int `json:"failure_code"`
+	FailureCode int `json:"failure_code,omitempty"`
 }
 
 // Only a wrapper to pass collected information about the channel
