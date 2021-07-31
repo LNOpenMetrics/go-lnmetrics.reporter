@@ -34,12 +34,25 @@ type ChannelInfo struct {
 	Forwards  []*PaymentInfo
 }
 
+type ChannelSummary struct {
+	NodeId    string `json:"node_id"`
+	Alias     string `json:"alias"`
+	Color     string `json:"color"`
+	ChannelId string `json:"channel_id"`
+	State     string `json:"state"`
+}
+
+type ChannelsSummary struct {
+	TotChannels uint64            `json:"tot_channels"`
+	Summary     []*ChannelSummary `json:"summary"`
+}
+
 // Wrap all useful information about the own node
 type status struct {
 	//node_id  string    `json:node_id`
 	Event string `json:"event"`
 	// how many channels the node have
-	Channels int `json:"channels"`
+	Channels *ChannelsSummary `json:"channels"`
 	// how many payments it forwords
 	Forwards *PaymentsSummary `json:"forwards"`
 	// unix time where the check is made.
@@ -128,6 +141,39 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
 }
 
+func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
+	listFunds, err := lightning.ListFunds()
+	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, err
+	}
+	instance.collectInfoChannels(lightning, listFunds.Channels)
+
+	listForwards, err := lightning.ListForwards()
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, err
+	}
+	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, err
+	}
+
+	channelsSummary, err := instance.makeChannelsSummary(lightning, listFunds.Channels)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, err
+	}
+	status := &status{Event: nameEvent,
+		Timestamp: time.Now().Unix(),
+		Channels:  channelsSummary,
+		Forwards:  statusPayments}
+
+	return status, nil
+}
+
 func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	getInfo, err := lightning.GetInfo()
 	if err != nil {
@@ -138,62 +184,22 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	instance.NodeId = getInfo.Id
 	instance.Color = getInfo.Color
 
-	log.GetInstance().Debug("Init event on metrics on called")
-	listFunds, err := lightning.ListFunds()
-	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
+	status, err := instance.onEvent("on_start", lightning)
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
-	instance.collectInfoChannels(lightning, listFunds.Channels)
-
-	listForwards, err := lightning.ListForwards()
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return err
-	}
-	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return err
-	}
-	instance.UpTime = append(instance.UpTime,
-		&status{Event: "on_start",
-			Timestamp: time.Now().Unix(),
-			Channels:  len(listFunds.Channels),
-			Forwards:  statusPayments})
+	instance.UpTime = append(instance.UpTime, status)
 	return instance.MakePersistent()
 
 	return nil
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
-	log.GetInstance().Debug("Update event on metrics on called")
-	listFunds, err := lightning.ListFunds()
-	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
+	status, err := instance.onEvent("on_update", lightning)
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return err
 	}
-	instance.collectInfoChannels(lightning, listFunds.Channels)
-
-	listForwards, err := lightning.ListForwards()
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return err
-	}
-	// TODO: feel payment status
-	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return err
-	}
-	instance.UpTime = append(instance.UpTime,
-		&status{Event: "on_update",
-			Timestamp: time.Now().Unix(),
-			Channels:  len(listFunds.Channels),
-			Forwards:  statusPayments,
-		})
+	instance.UpTime = append(instance.UpTime, status)
 	return instance.MakePersistent()
 }
 
@@ -215,7 +221,7 @@ func (instance *MetricOne) MakePersistent() error {
 // or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	lastValue := 0
+	lastValue := &ChannelsSummary{TotChannels: 0, Summary: make([]*ChannelSummary, 0)}
 	forwards := &PaymentsSummary{0, 0}
 	if len(instance.UpTime) > 0 {
 		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
@@ -235,6 +241,31 @@ func (instance *MetricOne) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(json), nil
+}
+
+// Make a summary of all the channels information that the node have a channels with.
+func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
+	channelsSummary := &ChannelsSummary{TotChannels: uint64(len(channels)), Summary: make([]*ChannelSummary, 0)}
+
+	if len(channels) > 0 {
+		summary := make([]*ChannelSummary, 0)
+		for _, channel := range channels {
+			channelSummary := &ChannelSummary{NodeId: channel.Id, ChannelId: channel.ShortChannelId, State: channel.State}
+			// FIXME: With too many channels this can require to many node request!
+			// this can avoid to get all node node known, but this also can have a very big response.
+			node, err := lightning.GetNode(channel.Id)
+			if err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
+				return nil, err
+			}
+			channelSummary.Alias = node.Alias
+			channelSummary.Color = node.Color
+			summary = append(summary, channelSummary)
+		}
+		channelsSummary.Summary = summary
+	}
+
+	return channelsSummary, nil
 }
 
 func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, forwards []glightning.Forwarding) (*PaymentsSummary, error) {

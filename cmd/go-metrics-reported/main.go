@@ -18,7 +18,6 @@ import (
 var metricsPlugin metrics.MetricsPlugin
 
 func main() {
-	log.GetInstance().Info("Init plugin")
 	plugin := glightning.NewPlugin(onInit)
 
 	metricsPlugin = metrics.MetricsPlugin{Plugin: plugin,
@@ -45,10 +44,6 @@ func main() {
 
 func onInit(plugin *glightning.Plugin,
 	options map[string]glightning.Option, config *glightning.Config) {
-	log.GetInstance().Debug("Options node have the following paramameters")
-	log.GetInstance().Debug(options)
-	log.GetInstance().Debug("Node with the following configuration")
-	log.GetInstance().Debug(config)
 	metricsPlugin.Rpc = glightning.NewLightning()
 
 	metricsPlugin.Rpc.StartUp(config.RpcFile, config.LightningDir)
