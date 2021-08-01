@@ -1,11 +1,5 @@
-name: Build and test Go
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+name: Release the package for all the architecture.
+on: [tags]
 jobs:
   build:
     name: Build
@@ -30,3 +24,8 @@ jobs:
 
       - name: Build
         run: make build OS=${{ matrix.OS }} ARCH=${{ matrix.ARCH }}
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v2
+        with:
+          path: go-lnmetrics-*
