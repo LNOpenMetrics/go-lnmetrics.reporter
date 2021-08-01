@@ -1,5 +1,8 @@
 name: Release the package for all the architecture.
-on: [tags]
+on:
+  push:
+    tags:
+      - 'v*'
 jobs:
   build:
     name: Build
