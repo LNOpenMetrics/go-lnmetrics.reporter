@@ -29,6 +29,10 @@ type Metric interface {
 	UpdateWithMsg(message *Msg, lightning *glightning.Lightning) error
 	// convert the object into a json
 	ToJSON() (string, error)
+	// Migrate to a new version of the metrics, some new version of the plugin
+	// ca contains some format change and for this reason, this method help
+	// to migrate the old version to a new version.
+	Migrate(payload map[string]interface{}) error
 }
 
 // Message struct to pass from the plugin to the metric

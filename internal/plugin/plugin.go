@@ -8,6 +8,7 @@ import (
 	"github.com/niftynei/glightning/glightning"
 	"github.com/robfig/cron/v3"
 
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 )
 
@@ -16,6 +17,7 @@ type MetricsPlugin struct {
 	Metrics map[int]Metric
 	Rpc     *glightning.Lightning
 	Cron    *cron.Cron
+	Server  *graphql.Client
 }
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
@@ -41,8 +43,8 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
 		//TODO add more information in the error message
-		log.GetInstance().Error(fmt.Sprintf("Metrics with is %d already registered."))
-		return errors.New(fmt.Sprintf("Metrics with is %d already registered."))
+		log.GetInstance().Error(fmt.Sprintf("Metrics with is %d already registered.", id))
+		return errors.New(fmt.Sprintf("Metrics with is %d already registered.", id))
 	}
 	plugin.Metrics[id] = metric
 	return nil

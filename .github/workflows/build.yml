@@ -28,5 +28,8 @@ jobs:
       - name: Check out source code
         uses: actions/checkout@v1
 
+      - name: Go test
+        run: make check
+
       - name: Build
         run: make build OS=${{ matrix.OS }} ARCH=${{ matrix.ARCH }}

@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/utils"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/niftynei/glightning/glightning"
@@ -68,6 +71,8 @@ type channelStatus struct {
 // Wrap all the information about the node that the own node
 // has some channel open.
 type statusChannel struct {
+	// short channel id
+	ChannelId string `json:"channel_id"`
 	// node id
 	NodeId string `json:"node_id"`
 	// label of the node
@@ -107,6 +112,9 @@ type PaymentsSummary struct {
 type MetricOne struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
+	// Version of metrics format, it is used to migrate the
+	// JSON payload from previous version of plugin.
+	Version int `json:"version"`
 	// Name of the metrics
 	Name   string  `json:"metric_name"`
 	NodeId string  `json:"node_id"`
@@ -118,6 +126,85 @@ type MetricOne struct {
 	UpTime []*status `json:"up_time"`
 	// map of informatonof channel information
 	ChannelsInfo map[string]*statusChannel `json:"channels_info"`
+}
+
+func (instance *MetricOne) MarshalJSON() ([]byte, error) {
+	jsonMap := make(map[string]interface{})
+	reflectType := reflect.TypeOf(*instance)
+	reflectValue := reflect.ValueOf(*instance)
+	nFiled := reflectValue.Type().NumField()
+
+	for i := 0; i < nFiled; i++ {
+		key := reflectType.Field(i)
+		valueFiled := reflectValue.Field(i)
+		jsonName := key.Tag.Get("json")
+		switch jsonName {
+		case "-":
+			// skip
+			continue
+		case "channels_info":
+			// TODO convert the map[string]*statusChannel in a list of statusChannel
+			statusChannels := make([]*statusChannel, 0)
+			for _, value := range valueFiled.Interface().(map[string]*statusChannel) {
+				statusChannels = append(statusChannels, value)
+			}
+			jsonMap[jsonName] = statusChannels
+		default:
+			jsonMap[jsonName] = valueFiled.Interface()
+		}
+	}
+
+	return json.Marshal(jsonMap)
+}
+
+func (instance *MetricOne) UnmarshalJSON(data []byte) error {
+	var jsonMap map[string]interface{}
+	err := json.Unmarshal(data, &jsonMap)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return err
+	}
+	instance.Migrate(jsonMap)
+	reflectValue := reflect.ValueOf(instance)
+	reflectStruct := reflectValue.Elem()
+	// reflectType := reflectValue.Type()
+	for key, value := range jsonMap {
+		fieldName, err := utils.GetFieldName(key, "json", *instance)
+		if err != nil {
+			log.GetInstance().Info(fmt.Sprintf("Error: %s", err))
+			if strings.Contains(key, "dev_") {
+				log.GetInstance().Info("dev propriety skipped if missed")
+				continue
+			}
+			return err
+		}
+		field := reflectStruct.FieldByName(*fieldName)
+		fieldType := field.Type()
+		filedValue := field.Interface()
+		val := reflect.ValueOf(filedValue)
+
+		switch key {
+		case "channels_info":
+			statusChannelsMap := make(map[string]*statusChannel)
+			toArray := value.([]interface{})
+			for _, status := range toArray {
+				var statusType statusChannel
+				jsonVal, err := json.Marshal(status)
+				if err != nil {
+					return err
+				}
+				err = json.Unmarshal(jsonVal, &statusType)
+				if err != nil {
+					return err
+				}
+				statusChannelsMap[statusType.ChannelId] = &statusType
+			}
+			field.Set(reflect.ValueOf(statusChannelsMap))
+		default:
+			field.Set(val.Convert(fieldType))
+		}
+	}
+	return nil
 }
 
 func init() {
@@ -133,7 +220,7 @@ func init() {
 
 // This method is required by the
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
-	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
+	return &MetricOne{id: 1, Version: 1, Name: MetricsSupported[1], NodeId: nodeId,
 		OSInfo: &osInfo{OS: sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
 			Architecture: sysInfo.Architecture},
@@ -141,9 +228,26 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
 }
 
+func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
+	version, found := payload["version"]
+	if !found || int(version.(float64)) < 1 {
+		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
+		channelsInfoMap, found := payload["channels_info"]
+		if !found {
+			log.GetInstance().Error(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
+			return errors.New(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
+		}
+		channelsInfoList := make([]interface{}, 0)
+		for _, value := range channelsInfoMap.(map[string]interface{}) {
+			channelsInfoList = append(channelsInfoList, value)
+		}
+		payload["channels_info"] = channelsInfoList
+	}
+	return nil
+}
+
 func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
 	listFunds, err := lightning.ListFunds()
-	log.GetInstance().Debug(fmt.Sprintf("%s", listFunds))
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return nil, err
@@ -338,7 +442,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, c
 		upTimes := make([]*channelStatus, 1)
 		upTimes[0] = &channelStat
 		// TODO: Could be good to have a information about the direction of the channel
-		newInfoChannel := statusChannel{NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
+		newInfoChannel := statusChannel{ChannelId: shortChannelId, NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
 			Capacity: channel.ChannelSatoshi, Forwards: info.Forwards,
 			UpTimes: upTimes, Online: channel.Connected}
 		instance.ChannelsInfo[shortChannelId] = &newInfoChannel

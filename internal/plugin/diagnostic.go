@@ -34,7 +34,7 @@ func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
 	result, err := db.GetInstance().GetValue(key)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("DB error for the key %s", key))
-		log.GetInstance().Error(fmt.Sprintf("Error is: ", err))
+		log.GetInstance().Error(fmt.Sprintf("Error is: %s", err))
 		return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
 	}
 	var obj interface{}

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	maker "github.com/OpenLNMetrics/go-metrics-reported/init/persistence"
 	metrics "github.com/OpenLNMetrics/go-metrics-reported/internal/plugin"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
 	sysinfo "github.com/elastic/go-sysinfo"
@@ -53,7 +55,11 @@ func onInit(plugin *glightning.Plugin,
 		panic(err)
 	}
 	db.GetInstance().InitDB(*metricsPath)
-
+	err = parseOptionsPlugin(options)
+	if err != nil {
+		log.GetInstance().Error(err)
+		panic(err)
+	}
 	//TODO: Load all the metrics in the datatabase that are registered from
 	// the user
 	metric, err := loadMetricIfExist(1)
@@ -75,14 +81,28 @@ func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResp
 	return event.Continue(), nil
 }
 
+// This method include the code to parse the configuration options of the plugin.
+func parseOptionsPlugin(options map[string]glightning.Option) error {
+	urlsAsString, found := options["lnmetrics-urls"]
+	urls := make([]string, 0)
+	if found {
+		urls = strings.FieldsFunc(urlsAsString.GetValue().(string), func(r rune) bool {
+			return r == ','
+		})
+	}
+	metricsPlugin.Server = graphql.New(urls)
+	// FIXME: Store the urls on db.
+	return nil
+}
+
 //FIXME: Improve quality of Go style here
 func loadMetricIfExist(id int) (metrics.Metric, error) {
 	metricName, ok := metrics.MetricsSupported[id]
 	if ok == false {
 		log.GetInstance().Info(fmt.Sprintf("Metric with id %d not supported", id))
-		return nil, errors.New(fmt.Sprintf("Metric with id %s not supported", id))
+		return nil, errors.New(fmt.Sprintf("Metric with id %d not supported", id))
 	}
-	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %s end name", id, metricName))
+	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %d end name %s", id, metricName))
 	metricDb, err := db.GetInstance().GetValue(metricName)
 	log.GetInstance().Info("value on db us " + metricDb)
 	if err != nil {
