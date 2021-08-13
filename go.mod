@@ -8,7 +8,7 @@ require (
 	github.com/niftynei/glightning v0.8.2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vincenzopalazzo/cpstl/go v0.0.0-20210802220150-6acfbf585502 // indirect
 	github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a // indirect

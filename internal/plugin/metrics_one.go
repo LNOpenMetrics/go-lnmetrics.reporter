@@ -111,6 +111,9 @@ type PaymentsSummary struct {
 type MetricOne struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
+	// Version of metrics format, it is used to migrate the
+	// JSON payload from previous version of plugin.
+	Version int  `json:"version"`
 	// Name of the metrics
 	Name   string  `json:"metric_name"`
 	NodeId string  `json:"node_id"`
@@ -212,7 +215,7 @@ func init() {
 
 // This method is required by the
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
-	return &MetricOne{id: 1, Name: MetricsSupported[1], NodeId: nodeId,
+	return &MetricOne{id: 1, Version: 1, Name: MetricsSupported[1], NodeId: nodeId,
 		OSInfo: &osInfo{OS: sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
 			Architecture: sysInfo.Architecture},
@@ -221,6 +224,21 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 }
 
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
+	version, found := payload["version"]
+	versionInt := int(version.(float64))
+	if !found || versionInt < 1 {
+		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
+		channelsInfoMap, found := payload["channels_info"]
+		if !found {
+			log.GetInstance().Error(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
+			return errors.New(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
+		}
+		channelsInfoList := make([]interface{}, 0)
+		for _, value := range channelsInfoMap.(map[string]interface{}) {
+			channelsInfoList = append(channelsInfoList, value)
+		}
+		payload["channels_info"] = channelsInfoList
+	}
 	return nil
 }
 
