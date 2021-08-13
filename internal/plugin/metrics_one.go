@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
@@ -113,7 +114,7 @@ type MetricOne struct {
 	id int `json:"-"`
 	// Version of metrics format, it is used to migrate the
 	// JSON payload from previous version of plugin.
-	Version int  `json:"version"`
+	Version int `json:"version"`
 	// Name of the metrics
 	Name   string  `json:"metric_name"`
 	NodeId string  `json:"node_id"`
@@ -168,12 +169,16 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	reflectStruct := reflectValue.Elem()
 	// reflectType := reflectValue.Type()
 	for key, value := range jsonMap {
-		filedName, err := utils.GetFieldName(key, "json", *instance)
+		fieldName, err := utils.GetFieldName(key, "json", *instance)
 		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+			log.GetInstance().Info(fmt.Sprintf("Error: %s", err))
+			if strings.Contains(key, "dev_") {
+				log.GetInstance().Info("dev propriety skipped if missed")
+				continue
+			}
 			return err
 		}
-		field := reflectStruct.FieldByName(*filedName)
+		field := reflectStruct.FieldByName(*fieldName)
 		fieldType := field.Type()
 		filedValue := field.Interface()
 		val := reflect.ValueOf(filedValue)
@@ -225,8 +230,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	version, found := payload["version"]
-	versionInt := int(version.(float64))
-	if !found || versionInt < 1 {
+	if !found || int(version.(float64)) < 1 {
 		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
 		channelsInfoMap, found := payload["channels_info"]
 		if !found {
