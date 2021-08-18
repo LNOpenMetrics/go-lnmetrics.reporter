@@ -2,12 +2,21 @@ package plugin
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
+
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/kinbiko/jsonassert"
 	//	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	// TODO: The database is null in the test method, why?
+	rootDir, _ := os.Executable()
+	db.GetInstance().InitDB(rootDir)
+}
 
 func TestJSONSerializzation(t *testing.T) {
 	sys, err := sysinfo.Host()

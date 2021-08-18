@@ -17,6 +17,10 @@ func GetInstance() *database {
 	return &instance
 }
 
+func (this *database) Ready() bool {
+	return this.instance != nil
+}
+
 func (this *database) InitDB(homedir string) error {
 	path := homedir + "/db"
 	db, err := leveldb.OpenFile(path, nil)

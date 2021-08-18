@@ -226,6 +226,25 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 		}
 		payload["channels_info"] = channelsInfoList
 	}
+
+	// in the test for the moment the db it is not ready
+	if !db.GetInstance().Ready() {
+		return nil
+	}
+
+	metric, err := db.GetInstance().GetValue("")
+	if err != nil {
+		// Do nothings, we take 3 months of deprecation phase before remove this code
+		return nil
+	}
+	if err := json.Unmarshal([]byte(metric), &payload); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
+		return err
+	}
+	if err := db.GetInstance().DeleteValue(""); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
+		return err
+	}
 	return nil
 }
 
