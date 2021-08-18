@@ -215,8 +215,6 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 }
 
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
-	version, found := payload["version"]
-
 	// in the test for the moment the db it is not ready
 	if db.GetInstance().Ready() {
 		metric, err := db.GetInstance().GetValue("")
@@ -237,6 +235,8 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			}
 		}
 	}
+
+	version, found := payload["version"]
 
 	if !found || int(version.(float64)) < 1 {
 		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
