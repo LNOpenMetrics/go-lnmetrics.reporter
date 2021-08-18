@@ -55,6 +55,12 @@ func (plugin *MetricsPlugin) RegisterMethods() {
 	rpcMethod.LongDesc = "Show the diagnostic data of the lightning network node"
 	rpcMethod.Category = "metrics"
 	plugin.Plugin.RegisterMethod(rpcMethod)
+
+	infoMethod := NewPluginRpcMethod()
+	infoRpcMethod := glightning.NewRpcMethod(infoMethod, "Show go-lnmetrics-reporter info")
+	infoRpcMethod.Category = "metrics"
+	infoRpcMethod.LongDesc = "Return a map where the key is the id of the method and the value is the payload of the metric. The metrics_id is a string that conatins the id divided by a comma. An example is \"diagnostic \"1,2,3\"\""
+	plugin.Plugin.RegisterMethod(infoRpcMethod)
 }
 
 func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
