@@ -166,7 +166,10 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &jsonMap); err != nil {
 		return err
 	}
-	instance.Migrate(jsonMap)
+
+	if err := instance.Migrate(jsonMap); err != nil {
+		return err
+	}
 
 	data, err := json.Marshal(jsonMap)
 	if err != nil {
@@ -237,6 +240,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 		// Do nothings, we take 3 months of deprecation phase before remove this code
 		return nil
 	}
+	log.GetInstance().Info("Migrate the new payload stored with the empty key")
 	if err := json.Unmarshal([]byte(metric), &payload); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
 		return err
