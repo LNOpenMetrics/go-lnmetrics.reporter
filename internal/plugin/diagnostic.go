@@ -37,11 +37,12 @@ func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
 		log.GetInstance().Error(fmt.Sprintf("Error is: %s", err))
 		return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
 	}
-	var obj interface{}
-	err = json.Unmarshal([]byte(result), &obj)
+
+	var metricOne interface{}
+	err = json.Unmarshal([]byte(result), &metricOne)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return nil, err
 	}
-	return obj, nil
+	return metricOne, nil
 }

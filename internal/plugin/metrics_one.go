@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/utils"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/niftynei/glightning/glightning"
@@ -125,85 +123,74 @@ type MetricOne struct {
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
 	// map of informatonof channel information
-	ChannelsInfo map[string]*statusChannel `json:"channels_info"`
+	ChannelsInfo map[string]*statusChannel `json:"-"`
 }
 
-func (instance *MetricOne) MarshalJSON() ([]byte, error) {
-	jsonMap := make(map[string]interface{})
-	reflectType := reflect.TypeOf(*instance)
-	reflectValue := reflect.ValueOf(*instance)
-	nFiled := reflectValue.Type().NumField()
+func (m MetricOne) MarshalJSON() ([]byte, error) {
+	// Declare a new type using the definition of MetricOne,
+	// the result of this is that M will have the same structure
+	// as MetricOne but none of its methods (this avoids recursive
+	// calls to MarshalJSON).
+	//
+	// Also because M and MetricOne have the same structure you can
+	// easily convert between those two. e.g. M(MetricOne{}) and
+	// MetricOne(M{}) are valid expressions.
+	type M MetricOne
 
-	for i := 0; i < nFiled; i++ {
-		key := reflectType.Field(i)
-		valueFiled := reflectValue.Field(i)
-		jsonName := key.Tag.Get("json")
-		switch jsonName {
-		case "-":
-			// skip
-			continue
-		case "channels_info":
-			// TODO convert the map[string]*statusChannel in a list of statusChannel
-			statusChannels := make([]*statusChannel, 0)
-			for _, value := range valueFiled.Interface().(map[string]*statusChannel) {
-				statusChannels = append(statusChannels, value)
-			}
-			jsonMap[jsonName] = statusChannels
-		default:
-			jsonMap[jsonName] = valueFiled.Interface()
-		}
+	// Declare a new type that has a field of the "desired" type and
+	// also **embeds** the M type. Embedding promotes M's fields to T
+	// and encoding/json will marshal those fields unnested/flattened,
+	// i.e. at the same level as the channels_info field.
+	type T struct {
+		M
+		ChannelsInfo []*statusChannel `json:"channels_info"`
 	}
 
-	return json.Marshal(jsonMap)
+	// move map elements to slice
+	channels := make([]*statusChannel, 0, len(m.ChannelsInfo))
+	for _, c := range m.ChannelsInfo {
+		channels = append(channels, c)
+	}
+
+	// Pass in an instance of the new type T to json.Marshal.
+	// For the embedded M field use a converted instance of the receiver.
+	// For the ChannelsInfo field use the channels slice.
+	return json.Marshal(T{
+		M:            M(m),
+		ChannelsInfo: channels,
+	})
 }
 
+// Same as MarshalJSON but in reverse.
 func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	var jsonMap map[string]interface{}
-	err := json.Unmarshal(data, &jsonMap)
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+	if err := json.Unmarshal(data, &jsonMap); err != nil {
 		return err
 	}
-	instance.Migrate(jsonMap)
-	reflectValue := reflect.ValueOf(instance)
-	reflectStruct := reflectValue.Elem()
-	// reflectType := reflectValue.Type()
-	for key, value := range jsonMap {
-		fieldName, err := utils.GetFieldName(key, "json", *instance)
-		if err != nil {
-			log.GetInstance().Info(fmt.Sprintf("Error: %s", err))
-			if strings.Contains(key, "dev_") {
-				log.GetInstance().Info("dev propriety skipped if missed")
-				continue
-			}
-			return err
-		}
-		field := reflectStruct.FieldByName(*fieldName)
-		fieldType := field.Type()
-		filedValue := field.Interface()
-		val := reflect.ValueOf(filedValue)
 
-		switch key {
-		case "channels_info":
-			statusChannelsMap := make(map[string]*statusChannel)
-			toArray := value.([]interface{})
-			for _, status := range toArray {
-				var statusType statusChannel
-				jsonVal, err := json.Marshal(status)
-				if err != nil {
-					return err
-				}
-				err = json.Unmarshal(jsonVal, &statusType)
-				if err != nil {
-					return err
-				}
-				statusChannelsMap[statusType.ChannelId] = &statusType
-			}
-			field.Set(reflect.ValueOf(statusChannelsMap))
-		default:
-			field.Set(val.Convert(fieldType))
-		}
+	if err := instance.Migrate(jsonMap); err != nil {
+		return err
 	}
+
+	data, err := json.Marshal(jsonMap)
+	if err != nil {
+		return err
+	}
+	type M MetricOne
+	type T struct {
+		*M
+		ChannelsInfo []*statusChannel `json:"channels_info"`
+	}
+	t := T{M: (*M)(instance)}
+	if err := json.Unmarshal(data, &t); err != nil {
+		return err
+	}
+
+	instance.ChannelsInfo = make(map[string]*statusChannel, len(t.ChannelsInfo))
+	for _, c := range t.ChannelsInfo {
+		instance.ChannelsInfo[c.ChannelId] = c
+	}
+
 	return nil
 }
 
@@ -229,7 +216,31 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 }
 
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
+	// in the test for the moment the db it is not ready
+	if db.GetInstance().Ready() {
+		metric, err := db.GetInstance().GetValue("")
+		if err == nil {
+			var newPayload map[string]interface{}
+			log.GetInstance().Info("Migrate the new payload stored with the empty key")
+			if err := json.Unmarshal([]byte(metric), &newPayload); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
+				return err
+			}
+			if err := db.GetInstance().DeleteValue(""); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error %s", err))
+				return err
+			}
+
+			for key, val := range newPayload {
+				payload[key] = val
+			}
+		} else {
+			log.GetInstance().Info("No metric with empity key")
+		}
+	}
+
 	version, found := payload["version"]
+
 	if !found || int(version.(float64)) < 1 {
 		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
 		channelsInfoMap, found := payload["channels_info"]
@@ -237,12 +248,16 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			log.GetInstance().Error(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
 			return errors.New(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
 		}
-		channelsInfoList := make([]interface{}, 0)
-		for _, value := range channelsInfoMap.(map[string]interface{}) {
-			channelsInfoList = append(channelsInfoList, value)
+		if reflect.ValueOf(channelsInfoMap).Kind() == reflect.Map {
+			channelsInfoList := make([]interface{}, 0)
+			for _, value := range channelsInfoMap.(map[string]interface{}) {
+				channelsInfoList = append(channelsInfoList, value)
+			}
+			payload["channels_info"] = channelsInfoList
+			payload["version"] = 1
 		}
-		payload["channels_info"] = channelsInfoList
 	}
+	payload["version"] = 1
 	return nil
 }
 

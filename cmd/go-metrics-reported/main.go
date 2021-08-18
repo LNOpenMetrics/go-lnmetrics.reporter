@@ -104,7 +104,6 @@ func loadMetricIfExist(id int) (metrics.Metric, error) {
 	}
 	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %d end name %s", id, metricName))
 	metricDb, err := db.GetInstance().GetValue(metricName)
-	log.GetInstance().Info("value on db us " + metricDb)
 	if err != nil {
 		log.GetInstance().Info("No metrics available yet")
 		log.GetInstance().Debug(fmt.Sprintf("Error received %s", err))
