@@ -42,7 +42,6 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
-		//TODO add more information in the error message
 		log.GetInstance().Error(fmt.Sprintf("Metrics with is %d already registered.", id))
 		return errors.New(fmt.Sprintf("Metrics with is %d already registered.", id))
 	}
@@ -80,7 +79,7 @@ func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	instance.Cron = cron.New()
 	instance.Cron.AddFunc(after, func() {
-		log.GetInstance().Debug("Calling recurrent function")
+		log.GetInstance().Debug("Calling recurrent")
 		for _, metric := range instance.Metrics {
 			go instance.callUpdateOnMetricNoMsg(metric)
 		}

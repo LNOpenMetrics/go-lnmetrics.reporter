@@ -207,6 +207,10 @@ func TestJSONMigrationFrom0to1Two(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
 	}
+	if metric.Name != "metric_one" {
+		t.Errorf("Test failure cause with metric name different")
+		t.Errorf("We have %s but we expected %s", metric.Name, "metric_one")
+	}
 	_, found := metric.ChannelsInfo["fake"]
 	if found == false {
 		t.Errorf("Test failure cause from the missing key in the channels info map. Key \"fake\" missed")

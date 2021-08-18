@@ -180,8 +180,7 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 		}
 		field := reflectStruct.FieldByName(*fieldName)
 		fieldType := field.Type()
-		filedValue := field.Interface()
-		val := reflect.ValueOf(filedValue)
+		val := reflect.ValueOf(value)
 
 		switch key {
 		case "channels_info":
