@@ -216,6 +216,28 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	version, found := payload["version"]
+
+	// in the test for the moment the db it is not ready
+	if db.GetInstance().Ready() {
+		metric, err := db.GetInstance().GetValue("")
+		if err != nil {
+			var newPayload map[string]interface{}
+			log.GetInstance().Info("Migrate the new payload stored with the empty key")
+			if err := json.Unmarshal([]byte(metric), &newPayload); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
+				return err
+			}
+			if err := db.GetInstance().DeleteValue(""); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error %s", err))
+				return err
+			}
+
+			for key, val := range newPayload {
+				payload[key] = val
+			}
+		}
+	}
+
 	if !found || int(version.(float64)) < 1 {
 		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
 		channelsInfoMap, found := payload["channels_info"]
@@ -230,25 +252,6 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 		payload["channels_info"] = channelsInfoList
 	}
 
-	// in the test for the moment the db it is not ready
-	if !db.GetInstance().Ready() {
-		return nil
-	}
-
-	metric, err := db.GetInstance().GetValue("")
-	if err != nil {
-		// Do nothings, we take 3 months of deprecation phase before remove this code
-		return nil
-	}
-	log.GetInstance().Info("Migrate the new payload stored with the empty key")
-	if err := json.Unmarshal([]byte(metric), &payload); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
-		return err
-	}
-	if err := db.GetInstance().DeleteValue(""); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
-		return err
-	}
 	return nil
 }
 
