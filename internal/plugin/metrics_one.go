@@ -254,6 +254,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 				channelsInfoList = append(channelsInfoList, value)
 			}
 			payload["channels_info"] = channelsInfoList
+			payload["version"] = 1
 		}
 	}
 
