@@ -38,7 +38,6 @@ func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
 		return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
 	}
 
-	log.GetInstance().Debug(fmt.Sprintf("Result in the map %s", result))
 	var metricOne interface{}
 	err = json.Unmarshal([]byte(result), &metricOne)
 	if err != nil {
