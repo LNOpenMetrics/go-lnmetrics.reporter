@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
@@ -247,11 +248,13 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			log.GetInstance().Error(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
 			return errors.New(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
 		}
-		channelsInfoList := make([]interface{}, 0)
-		for _, value := range channelsInfoMap.(map[string]interface{}) {
-			channelsInfoList = append(channelsInfoList, value)
+		if reflect.ValueOf(channelsInfoMap).Kind() == reflect.Map {
+			channelsInfoList := make([]interface{}, 0)
+			for _, value := range channelsInfoMap.(map[string]interface{}) {
+				channelsInfoList = append(channelsInfoList, value)
+			}
+			payload["channels_info"] = channelsInfoList
 		}
-		payload["channels_info"] = channelsInfoList
 	}
 
 	return nil
