@@ -257,7 +257,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			payload["version"] = 1
 		}
 	}
-
+	payload["version"] = 1
 	return nil
 }
 
