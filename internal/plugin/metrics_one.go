@@ -218,7 +218,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	// in the test for the moment the db it is not ready
 	if db.GetInstance().Ready() {
 		metric, err := db.GetInstance().GetValue("")
-		if err != nil {
+		if err == nil {
 			var newPayload map[string]interface{}
 			log.GetInstance().Info("Migrate the new payload stored with the empty key")
 			if err := json.Unmarshal([]byte(metric), &newPayload); err != nil {
@@ -233,6 +233,8 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			for key, val := range newPayload {
 				payload[key] = val
 			}
+		} else {
+			log.GetInstance().Info("No metric with empity key")
 		}
 	}
 
