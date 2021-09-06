@@ -27,6 +27,7 @@ type PaymentInfo struct {
 }
 
 // Only a wrapper to pass collected information about the channel
+// not used inside the metrics.
 type ChannelInfo struct {
 	NodeId    string
 	Alias     string
@@ -114,10 +115,11 @@ type MetricOne struct {
 	// JSON payload from previous version of plugin.
 	Version int `json:"version"`
 	// Name of the metrics
-	Name   string  `json:"metric_name"`
-	NodeId string  `json:"node_id"`
-	Color  string  `json:"color"`
-	OSInfo *osInfo `json:"os_info"`
+	Name      string  `json:"metric_name"`
+	NodeId    string  `json:"node_id"`
+	NodeAlias string  `json:"node_alias"`
+	Color     string  `json:"color"`
+	OSInfo    *osInfo `json:"os_info"`
 	// timezone where the node is located
 	Timezone string `json:"timezone"`
 	// array of the up_time
@@ -207,7 +209,9 @@ func init() {
 
 // This method is required by the
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
-	return &MetricOne{id: 1, Version: 1, Name: MetricsSupported[1], NodeId: nodeId,
+	return &MetricOne{id: 1, Version: 1,
+		Name: MetricsSupported[1], NodeId: nodeId,
+		NodeAlias: "TODO: propriety missed",
 		OSInfo: &osInfo{OS: sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
 			Architecture: sysInfo.Architecture},
@@ -267,7 +271,10 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return nil, err
 	}
-	instance.collectInfoChannels(lightning, listFunds.Channels)
+	if err := instance.collectInfoChannels(lightning, listFunds.Channels); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, err
+	}
 
 	listForwards, err := lightning.ListForwards()
 	if err != nil {
@@ -408,17 +415,17 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel) error {
 	cache := make(map[string]bool)
 	for _, channel := range channels {
-		err := instance.collectInfoChannel(lightning, channel)
-		if err != nil {
+		if err := instance.collectInfoChannel(lightning, channel); err != nil {
 			// void returning error here? We can continue to make the analysis over the channels
 			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 			return err
 		}
-		err = instance.collectInfoChannel(lightning, channel)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			return nil
-		}
+		/*
+			err = instance.collectInfoChannel(lightning, channel)
+			if err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+				return nil
+			} */
 		cache[channel.ShortChannelId] = true
 	}
 
@@ -437,7 +444,8 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	return nil
 }
 
-func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, channel *glightning.FundingChannel) error {
+func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
+	channel *glightning.FundingChannel) error {
 
 	shortChannelId := channel.ShortChannelId
 	infoChannel, found := instance.ChannelsInfo[shortChannelId]
@@ -471,8 +479,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, c
 }
 
 func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId string) bool {
-	_, err := lightning.Ping(nodeId)
-	if err != nil {
+	if _, err := lightning.Ping(nodeId); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during pinging node: %s", err))
 		return false
 	}
@@ -482,12 +489,17 @@ func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId stri
 func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, channel *glightning.FundingChannel) (*ChannelInfo, error) {
 
 	nodeInfo, err := lightning.GetNode(channel.Id)
+	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: nodeInfo.Alias,
+		Color: nodeInfo.Color, Direction: "unknown",
+		Forwards: make([]*PaymentInfo, 0)}
+
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the call listNodes: %s", err))
-		return nil, err
+		// We avoid to return the error because it is correct that the node
+		// it is not up and running, this means that it is fine admit an
+		// error here.
+		return &channelInfo, nil
 	}
-
-	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: nodeInfo.Alias, Color: nodeInfo.Color, Direction: "unknown"}
 
 	listForwards, err := lightning.ListForwards()
 
