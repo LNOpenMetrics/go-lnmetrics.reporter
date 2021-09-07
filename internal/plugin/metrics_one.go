@@ -27,6 +27,7 @@ type PaymentInfo struct {
 }
 
 // Only a wrapper to pass collected information about the channel
+// not used inside the metrics.
 type ChannelInfo struct {
 	NodeId    string
 	Alias     string
@@ -114,10 +115,11 @@ type MetricOne struct {
 	// JSON payload from previous version of plugin.
 	Version int `json:"version"`
 	// Name of the metrics
-	Name   string  `json:"metric_name"`
-	NodeId string  `json:"node_id"`
-	Color  string  `json:"color"`
-	OSInfo *osInfo `json:"os_info"`
+	Name      string  `json:"metric_name"`
+	NodeId    string  `json:"node_id"`
+	NodeAlias string  `json:"node_alias"`
+	Color     string  `json:"color"`
+	OSInfo    *osInfo `json:"os_info"`
 	// timezone where the node is located
 	Timezone string `json:"timezone"`
 	// array of the up_time
@@ -207,7 +209,9 @@ func init() {
 
 // This method is required by the
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
-	return &MetricOne{id: 1, Version: 1, Name: MetricsSupported[1], NodeId: nodeId,
+	return &MetricOne{id: 1, Version: 1,
+		Name: MetricsSupported[1], NodeId: nodeId,
+		NodeAlias: "TODO: propriety missed",
 		OSInfo: &osInfo{OS: sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
 			Architecture: sysInfo.Architecture},
@@ -245,8 +249,8 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
 		channelsInfoMap, found := payload["channels_info"]
 		if !found {
-			log.GetInstance().Error(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
-			return errors.New(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
+			log.GetInstance().Error("Error: channels_info is not in the payload for migration")
+			return errors.New("Error: channels_info is not in the payload for migration")
 		}
 		if reflect.ValueOf(channelsInfoMap).Kind() == reflect.Map {
 			channelsInfoList := make([]interface{}, 0)
@@ -267,7 +271,10 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return nil, err
 	}
-	instance.collectInfoChannels(lightning, listFunds.Channels)
+	if err := instance.collectInfoChannels(lightning, listFunds.Channels); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		// We admit this error here, we print only some log information.
+	}
 
 	listForwards, err := lightning.ListForwards()
 	if err != nil {
@@ -283,7 +290,10 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 	channelsSummary, err := instance.makeChannelsSummary(lightning, listFunds.Channels)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return nil, err
+		// We admit this error here, we print only some log information.
+		// In the call that cause this error we make a call to getListNodes, but
+		// the node with that we have the channels with can be offiline for a while
+		// and this mean that can be out of the gossip map.
 	}
 	status := &status{Event: nameEvent,
 		Timestamp: time.Now().Unix(),
@@ -302,15 +312,13 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 
 	instance.NodeId = getInfo.Id
 	instance.Color = getInfo.Color
-
+	instance.NodeAlias = getInfo.Alias
 	status, err := instance.onEvent("on_start", lightning)
 	if err != nil {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
 	return instance.MakePersistent()
-
-	return nil
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
@@ -364,19 +372,29 @@ func (instance *MetricOne) ToJSON() (string, error) {
 
 // Make a summary of all the channels information that the node have a channels with.
 func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
-	channelsSummary := &ChannelsSummary{TotChannels: uint64(len(channels)), Summary: make([]*ChannelSummary, 0)}
+	channelsSummary := &ChannelsSummary{TotChannels: 0, Summary: make([]*ChannelSummary, 0)}
 
 	if len(channels) > 0 {
 		summary := make([]*ChannelSummary, 0)
 		for _, channel := range channels {
+
+			if channel.State == "ON_CHAIN" {
+				// When the channel is on chain, it is not longer a channel,
+				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
+				log.GetInstance().Debug(fmt.Sprintf("The channel with ID %s has ON_CHAIN status", channel.Id))
+				continue
+			}
+
 			channelSummary := &ChannelSummary{NodeId: channel.Id, ChannelId: channel.ShortChannelId, State: channel.State}
 			// FIXME: With too many channels this can require to many node request!
 			// this can avoid to get all node node known, but this also can have a very big response.
 			node, err := lightning.GetNode(channel.Id)
 			if err != nil {
 				log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
-				return nil, err
+				// We admit this error, a node can be forgotten by the gossip if it is offline for long time.
+				continue
 			}
+			channelsSummary.TotChannels++
 			channelSummary.Alias = node.Alias
 			channelSummary.Color = node.Color
 			summary = append(summary, channelSummary)
@@ -397,7 +415,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 		case "failed", "local_failed":
 			statusPayments.Failed++
 		default:
-			return nil, errors.New(fmt.Sprintf("Status %s unexpected", forward.Status))
+			return nil, fmt.Errorf("Status %s unexpected", forward.Status)
 		}
 	}
 
@@ -408,16 +426,10 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel) error {
 	cache := make(map[string]bool)
 	for _, channel := range channels {
-		err := instance.collectInfoChannel(lightning, channel)
-		if err != nil {
+		if err := instance.collectInfoChannel(lightning, channel); err != nil {
 			// void returning error here? We can continue to make the analysis over the channels
 			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 			return err
-		}
-		err = instance.collectInfoChannel(lightning, channel)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			return nil
 		}
 		cache[channel.ShortChannelId] = true
 	}
@@ -427,7 +439,7 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	// this is useful to remove the metrics over closed channels
 	// in the metrics one we are not interested to have a story of
 	// of the old channels (for the moments).
-	for key, _ := range instance.ChannelsInfo {
+	for key := range instance.ChannelsInfo {
 		_, found := cache[key]
 		if !found {
 			delete(instance.ChannelsInfo, key)
@@ -437,15 +449,18 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	return nil
 }
 
-func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, channel *glightning.FundingChannel) error {
+func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
+	channel *glightning.FundingChannel) error {
 
 	shortChannelId := channel.ShortChannelId
 	infoChannel, found := instance.ChannelsInfo[shortChannelId]
 	var timestamp int64 = 0
+	// avoid to store the wrong data related to the gossip delay.
 	if instance.pingNode(lightning, channel.Id) {
 		timestamp = time.Now().Unix()
 	}
-	info, err := instance.getChannelInfo(lightning, channel)
+
+	info, err := instance.getChannelInfo(lightning, channel, infoChannel)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
 		return err
@@ -471,23 +486,36 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning, c
 }
 
 func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId string) bool {
-	_, err := lightning.Ping(nodeId)
-	if err != nil {
+	if _, err := lightning.Ping(nodeId); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during pinging node: %s", err))
 		return false
 	}
 	return true
 }
 
-func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, channel *glightning.FundingChannel) (*ChannelInfo, error) {
+func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
+	channel *glightning.FundingChannel, prevInstance *statusChannel) (*ChannelInfo, error) {
 
 	nodeInfo, err := lightning.GetNode(channel.Id)
+	// Init the default data here
+	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: "unknown",
+		Color: "unknown", Direction: "unknown",
+		Forwards: make([]*PaymentInfo, 0)}
+
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the call listNodes: %s", err))
-		return nil, err
+		if prevInstance != nil {
+			channelInfo.Alias = prevInstance.NodeAlias
+			channelInfo.Color = prevInstance.Color
+		}
+		// We avoid to return the error because it is correct that the node
+		// it is not up and running, this means that it is fine admit an
+		// error here.
+		return &channelInfo, nil
 	}
 
-	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: nodeInfo.Alias, Color: nodeInfo.Color, Direction: "unknown"}
+	channelInfo.Alias = nodeInfo.Alias
+	channelInfo.Color = nodeInfo.Color
 
 	listForwards, err := lightning.ListForwards()
 
@@ -516,7 +544,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, chann
 			paymentInfo.FailureReason = forward.FailReason
 			paymentInfo.FailureCode = forward.FailCode
 		default:
-			return nil, errors.New(fmt.Sprintf("Status %s unexpected", forward.Status))
+			return nil, fmt.Errorf("Status %s unexpected", forward.Status)
 		}
 	}
 	//TODO Adding support for the dual founding channels.

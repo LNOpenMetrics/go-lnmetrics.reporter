@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -25,11 +24,15 @@ func main() {
 	metricsPlugin = metrics.MetricsPlugin{Plugin: plugin,
 		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
-	plugin.RegisterHooks(&glightning.Hooks{
-		RpcCommand: OnRpcCommand,
-	})
-
-	metricsPlugin.RegisterMethods()
+	hook := &glightning.Hooks{RpcCommand: OnRpcCommand}
+	if err := plugin.RegisterHooks(hook); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		panic(err)
+	}
+	if err := metricsPlugin.RegisterMethods(); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		panic(err)
+	}
 
 	// To set the time the following doc is followed
 	// https://pkg.go.dev/github.com/robfig/cron?utm_source=godoc
@@ -54,7 +57,10 @@ func onInit(plugin *glightning.Plugin,
 		log.GetInstance().Error(err)
 		panic(err)
 	}
-	db.GetInstance().InitDB(*metricsPath)
+	if err := db.GetInstance().InitDB(*metricsPath); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		panic(err)
+	}
 	err = parseOptionsPlugin(options)
 	if err != nil {
 		log.GetInstance().Error(err)
@@ -77,7 +83,9 @@ func onInit(plugin *glightning.Plugin,
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
-	metricsPlugin.HendlerRPCMessage(event)
+	if err := metricsPlugin.HendlerRPCMessage(event); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error during a hook handler: %s", err))
+	}
 	return event.Continue(), nil
 }
 
@@ -97,10 +105,10 @@ func parseOptionsPlugin(options map[string]glightning.Option) error {
 
 //FIXME: Improve quality of Go style here
 func loadMetricIfExist(id int) (metrics.Metric, error) {
-	metricName, ok := metrics.MetricsSupported[id]
-	if ok == false {
+	metricName, found := metrics.MetricsSupported[id]
+	if !found {
 		log.GetInstance().Info(fmt.Sprintf("Metric with id %d not supported", id))
-		return nil, errors.New(fmt.Sprintf("Metric with id %d not supported", id))
+		return nil, fmt.Errorf("Metric with id %d not supported", id)
 	}
 	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %d end name %s", id, metricName))
 	metricDb, err := db.GetInstance().GetValue(metricName)
@@ -118,7 +126,7 @@ func loadMetricIfExist(id int) (metrics.Metric, error) {
 			return one, nil
 
 		default:
-			return nil, errors.New(fmt.Sprintf("Metric with id %d not supported", id))
+			return nil, fmt.Errorf("Metric with id %d not supported", id)
 		}
 	}
 	log.GetInstance().Info("Metrics available on DB, loading them.")
@@ -132,6 +140,6 @@ func loadMetricIfExist(id int) (metrics.Metric, error) {
 		}
 		return &metric, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("Metric with id %d not supported", id))
+		return nil, fmt.Errorf("Metric with id %d not supported", id)
 	}
 }

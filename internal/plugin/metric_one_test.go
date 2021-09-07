@@ -15,7 +15,7 @@ import (
 func init() {
 	// TODO: The database is null in the test method, why?
 	rootDir, _ := os.Executable()
-	db.GetInstance().InitDB(rootDir)
+	_ = db.GetInstance().InitDB(rootDir)
 }
 
 func TestJSONSerializzation(t *testing.T) {
@@ -24,7 +24,7 @@ func TestJSONSerializzation(t *testing.T) {
 		t.Errorf("Test Failure caused by: %s", err)
 	}
 	metric := NewMetricOne("1234", sys.Info())
-	jsonString, err := json.Marshal(metric)
+	jsonString, _ := json.Marshal(metric)
 
 	jsonTest := jsonassert.New(t)
 	jsonTest.Assertf(string(jsonString), `{
@@ -32,6 +32,7 @@ func TestJSONSerializzation(t *testing.T) {
    "color": "<<PRESENCE>>",
    "metric_name": "metric_one",
    "node_id": "<<PRESENCE>>",
+   "node_alias": "<<PRESENCE>>",
    "os_info": {
       "architecture": "<<PRESENCE>>",
       "os": "<<PRESENCE>>",

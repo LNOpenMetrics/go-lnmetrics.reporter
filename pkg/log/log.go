@@ -14,11 +14,11 @@ type singleton struct {
 var instance singleton
 
 func init() {
+	//FIXME: give the possibility to specify the path.
 	instance.Log = logrus.New()
 	dirname, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
-		return
 	}
 	instance.Log.SetLevel(logrus.DebugLevel)
 	file, err := os.OpenFile(dirname+"/metrics.log",

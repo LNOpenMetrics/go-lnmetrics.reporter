@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/niftynei/glightning/jrpc2"
 	"strconv"
@@ -46,13 +45,13 @@ func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
 	for _, metricId := range metricsRequired {
 		key, found := MetricsSupported[metricId]
 		if !found {
-			return nil, errors.New(fmt.Sprintf("ID metrics %d unknown", metricId))
+			return nil, fmt.Errorf("ID metrics %d unknown", metricId)
 		}
 		result, err := db.GetInstance().GetValue(key)
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("DB error for the key %s", key))
 			log.GetInstance().Error(fmt.Sprintf("Error is: %s", err))
-			return nil, errors.New(fmt.Sprintf("DB error for the metric %s with following motivation %s", key, err))
+			return nil, fmt.Errorf("DB error for the metric %s with following motivation %s", key, err)
 		}
 
 		var metric interface{}
