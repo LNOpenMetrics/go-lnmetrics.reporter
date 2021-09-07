@@ -32,6 +32,7 @@ func TestJSONSerializzation(t *testing.T) {
    "color": "<<PRESENCE>>",
    "metric_name": "metric_one",
    "node_id": "<<PRESENCE>>",
+   "node_alias": "<<PRESENCE>>",
    "os_info": {
       "architecture": "<<PRESENCE>>",
       "os": "<<PRESENCE>>",
