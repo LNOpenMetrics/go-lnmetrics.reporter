@@ -249,8 +249,8 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 		log.GetInstance().Info("Migrate channels_info from version 0 to version 1")
 		channelsInfoMap, found := payload["channels_info"]
 		if !found {
-			log.GetInstance().Error(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
-			return errors.New(fmt.Sprintf("Error: channels_info is not in the payload for migration"))
+			log.GetInstance().Error("Error: channels_info is not in the payload for migration")
+			return errors.New("Error: channels_info is not in the payload for migration")
 		}
 		if reflect.ValueOf(channelsInfoMap).Kind() == reflect.Map {
 			channelsInfoList := make([]interface{}, 0)
@@ -316,8 +316,6 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	}
 	instance.UpTime = append(instance.UpTime, status)
 	return instance.MakePersistent()
-
-	return nil
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
@@ -404,7 +402,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 		case "failed", "local_failed":
 			statusPayments.Failed++
 		default:
-			return nil, errors.New(fmt.Sprintf("Status %s unexpected", forward.Status))
+			return nil, fmt.Errorf("Status %s unexpected", forward.Status)
 		}
 	}
 
@@ -434,7 +432,7 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	// this is useful to remove the metrics over closed channels
 	// in the metrics one we are not interested to have a story of
 	// of the old channels (for the moments).
-	for key, _ := range instance.ChannelsInfo {
+	for key := range instance.ChannelsInfo {
 		_, found := cache[key]
 		if !found {
 			delete(instance.ChannelsInfo, key)
@@ -528,7 +526,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, chann
 			paymentInfo.FailureReason = forward.FailReason
 			paymentInfo.FailureCode = forward.FailCode
 		default:
-			return nil, errors.New(fmt.Sprintf("Status %s unexpected", forward.Status))
+			return nil, fmt.Errorf("Status %s unexpected", forward.Status)
 		}
 	}
 	//TODO Adding support for the dual founding channels.

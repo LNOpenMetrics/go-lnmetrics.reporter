@@ -3,7 +3,6 @@ package graphql
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -45,7 +44,11 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 			continue
 		}
 		response, err := instance.Client.Do(request)
-		defer response.Body.Close()
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+			}
+		}()
 		if err != nil {
 			failure++
 			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
@@ -62,7 +65,7 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 	}
 
 	if failure == len(instance.BaseUrl) {
-		return errors.New(fmt.Sprintf("All the request to push the data into request are failed. %d Failure over %d request", failure, len(instance.BaseUrl)))
+		return fmt.Errorf("All the request to push the data into request are failed. %d Failure over %d request", failure, len(instance.BaseUrl))
 	}
 
 	return nil
