@@ -273,7 +273,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 	}
 	if err := instance.collectInfoChannels(lightning, listFunds.Channels); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return nil, err
+		// We admit this error here, we print only some log information.
 	}
 
 	listForwards, err := lightning.ListForwards()
@@ -290,7 +290,10 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 	channelsSummary, err := instance.makeChannelsSummary(lightning, listFunds.Channels)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return nil, err
+		// We admit this error here, we print only some log information.
+		// In the call that cause this error we make a call to getListNodes, but
+		// the node with that we have the channels with can be offiline for a while
+		// and this mean that can be out of the gossip map.
 	}
 	status := &status{Event: nameEvent,
 		Timestamp: time.Now().Unix(),
@@ -309,7 +312,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 
 	instance.NodeId = getInfo.Id
 	instance.Color = getInfo.Color
-
+	instance.NodeAlias = getInfo.Alias
 	status, err := instance.onEvent("on_start", lightning)
 	if err != nil {
 		return err
@@ -369,19 +372,29 @@ func (instance *MetricOne) ToJSON() (string, error) {
 
 // Make a summary of all the channels information that the node have a channels with.
 func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
-	channelsSummary := &ChannelsSummary{TotChannels: uint64(len(channels)), Summary: make([]*ChannelSummary, 0)}
+	channelsSummary := &ChannelsSummary{TotChannels: 0, Summary: make([]*ChannelSummary, 0)}
 
 	if len(channels) > 0 {
 		summary := make([]*ChannelSummary, 0)
 		for _, channel := range channels {
+
+			if channel.State == "ON_CHAIN" {
+				// When the channel is on chain, it is not longer a channel,
+				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
+				log.GetInstance().Debug(fmt.Sprintf("The channel with ID %s has ON_CHAIN status", channel.Id))
+				continue
+			}
+
 			channelSummary := &ChannelSummary{NodeId: channel.Id, ChannelId: channel.ShortChannelId, State: channel.State}
 			// FIXME: With too many channels this can require to many node request!
 			// this can avoid to get all node node known, but this also can have a very big response.
 			node, err := lightning.GetNode(channel.Id)
 			if err != nil {
 				log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
-				return nil, err
+				// We admit this error, a node can be forgotten by the gossip if it is offline for long time.
+				continue
 			}
+			channelsSummary.TotChannels++
 			channelSummary.Alias = node.Alias
 			channelSummary.Color = node.Color
 			summary = append(summary, channelSummary)
@@ -418,12 +431,6 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 			return err
 		}
-		/*
-			err = instance.collectInfoChannel(lightning, channel)
-			if err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-				return nil
-			} */
 		cache[channel.ShortChannelId] = true
 	}
 
@@ -448,10 +455,12 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 	shortChannelId := channel.ShortChannelId
 	infoChannel, found := instance.ChannelsInfo[shortChannelId]
 	var timestamp int64 = 0
+	// avoid to store the wrong data related to the gossip delay.
 	if instance.pingNode(lightning, channel.Id) {
 		timestamp = time.Now().Unix()
 	}
-	info, err := instance.getChannelInfo(lightning, channel)
+
+	info, err := instance.getChannelInfo(lightning, channel, infoChannel)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
 		return err
@@ -484,20 +493,29 @@ func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId stri
 	return true
 }
 
-func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning, channel *glightning.FundingChannel) (*ChannelInfo, error) {
+func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
+	channel *glightning.FundingChannel, prevInstance *statusChannel) (*ChannelInfo, error) {
 
 	nodeInfo, err := lightning.GetNode(channel.Id)
-	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: nodeInfo.Alias,
-		Color: nodeInfo.Color, Direction: "unknown",
+	// Init the default data here
+	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: "unknown",
+		Color: "unknown", Direction: "unknown",
 		Forwards: make([]*PaymentInfo, 0)}
 
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the call listNodes: %s", err))
+		if prevInstance != nil {
+			channelInfo.Alias = prevInstance.NodeAlias
+			channelInfo.Color = prevInstance.Color
+		}
 		// We avoid to return the error because it is correct that the node
 		// it is not up and running, this means that it is fine admit an
 		// error here.
 		return &channelInfo, nil
 	}
+
+	channelInfo.Alias = nodeInfo.Alias
+	channelInfo.Color = nodeInfo.Color
 
 	listForwards, err := lightning.ListForwards()
 
