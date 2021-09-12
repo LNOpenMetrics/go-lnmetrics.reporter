@@ -378,7 +378,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 		summary := make([]*ChannelSummary, 0)
 		for _, channel := range channels {
 
-			if channel.State == "ON_CHAIN" {
+			if channel.State == "ONCHAIN" {
 				// When the channel is on chain, it is not longer a channel,
 				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
 				log.GetInstance().Debug(fmt.Sprintf("The channel with ID %s has ON_CHAIN status", channel.Id))
