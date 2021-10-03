@@ -13,7 +13,7 @@ import (
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
 	sysinfo "github.com/elastic/go-sysinfo"
-	"github.com/niftynei/glightning/glightning"
+	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
 var metricsPlugin metrics.MetricsPlugin

@@ -11,7 +11,7 @@ import (
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
-	"github.com/niftynei/glightning/glightning"
+	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
 // Information about the Payment forward by the node

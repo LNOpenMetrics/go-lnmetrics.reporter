@@ -45,6 +45,12 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/vincenzopalazzo/cpstl v0.0.0-20210802212618-10e43ad95b4d h1:G44oroXZ7mPtQpKOZ1xTzesNgQVOVA+5BuE+k7pNZJA=
 github.com/vincenzopalazzo/cpstl/go v0.0.0-20210802220150-6acfbf585502 h1:rkiZNZK0dZGhkB6GLD9cX1ZDmT1xHF8zfx3OHREjJ5s=
 github.com/vincenzopalazzo/cpstl/go v0.0.0-20210802220150-6acfbf585502/go.mod h1:wh51W+sjnV8DL6VRbp/GY1BZm+2b+tSsUVbnXRHvfP0=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211003140907-c1081038f305 h1:gJolyNU3NmRG1HK1qQGKdRTSLK9xkMN1WWuJLGPuG4Q=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211003140907-c1081038f305/go.mod h1:zNMKjmjwMOPLoeWV7/u6NgC3o/VUGha/Vb1x2AsM3T0=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211003143735-95b507670bac h1:ENgsB0hQsAf2E1g+kOwcdpzErFvMYi0fMMyinCLJHzk=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211003143735-95b507670bac/go.mod h1:zNMKjmjwMOPLoeWV7/u6NgC3o/VUGha/Vb1x2AsM3T0=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211003145319-87ad168ff299 h1:R1m5hLZJrdBPG5Mv5sq4S8pSTNukYpLxlrwCbj1Gyi8=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211003145319-87ad168ff299/go.mod h1:zNMKjmjwMOPLoeWV7/u6NgC3o/VUGha/Vb1x2AsM3T0=
 github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a h1:Km41y+ivLvjwZLDJO5/x+NsZrXT+MxrNTLxqs0KnR+I=
 github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a/go.mod h1:WGLNaWsjKQ2gXmAHh+MQztgu3FLFAnOFJjFzhpgShCY=
 golang.org/x/net v0.0.0-20180906233101-161cd47e91fd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
