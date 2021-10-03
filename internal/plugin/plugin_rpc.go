@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/niftynei/glightning/jrpc2"
+	"github.com/vincenzopalazzo/glightning/jrpc2"
 )
 
 type PluginRpcMethod struct{}

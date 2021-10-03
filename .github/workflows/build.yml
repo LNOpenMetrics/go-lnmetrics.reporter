@@ -14,11 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { OS: "linux", ARCH: "386" }
-          - { OS: "linux", ARCH: "amd64" }
-          - { OS: "linux", ARCH: "arm" }
-          - { OS: "linux", ARCH: "arm64" }
-          - { OS: "darwin", ARCH: "amd64" }
+          - { OS: "linux", ARCH: "386", ARM: "" }
+          - { OS: "linux", ARCH: "amd64", ARM: "" }
+          - { OS: "linux", ARCH: "arm", ARM: "5" }
+          - { OS: "linux", ARCH: "arm", ARM: "6" }
+          - { OS: "linux", ARCH: "arm", ARM: "7" }
+          - { OS: "linux", ARCH: "arm64", ARM: "" }
+          - { OS: "darwin", ARCH: "amd64", ARM: "" }
     steps:
       - name: Set up Go 1.16
         uses: actions/setup-go@v1
@@ -32,4 +34,4 @@ jobs:
         run: make check
 
       - name: Build
-        run: make build OS=${{ matrix.OS }} ARCH=${{ matrix.ARCH }}
+        run: make build OS=${{ matrix.OS }} ARCH=${{ matrix.ARCH }} ARM=${{ matrix.ARM }}

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/niftynei/glightning/glightning"
 	"github.com/robfig/cron/v3"
+	"github.com/vincenzopalazzo/glightning/glightning"
 
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"

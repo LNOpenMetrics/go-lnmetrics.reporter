@@ -3,7 +3,7 @@ package plugin
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/niftynei/glightning/jrpc2"
+	"github.com/vincenzopalazzo/glightning/jrpc2"
 	"strconv"
 	"strings"
 

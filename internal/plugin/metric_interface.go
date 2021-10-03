@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/niftynei/glightning/glightning"
+	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
 // mapping the internal id with the name of the metrics.
