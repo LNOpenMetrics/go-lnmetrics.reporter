@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
+	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
 	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/vincenzopalazzo/glightning/glightning"
@@ -368,6 +369,21 @@ func (instance *MetricOne) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(json), nil
+}
+
+func (instance *MetricOne) Upload(client *graphql.Client) error {
+	payload, err := instance.ToJSON()
+	if err != nil {
+		return err
+	}
+	if err := client.UploadMetrics(instance.NodeId, &payload); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
+		return err
+	}
+	// Refactored this method in a utils functions
+	t := time.Now()
+	log.GetInstance().Info(fmt.Sprintf("Metric One Upload at %s", t.Format(time.RFC850)))
+	return nil
 }
 
 // Make a summary of all the channels information that the node have a channels with.

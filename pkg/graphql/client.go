@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/lnmetrics.utils/log"
 )
 
 type Client struct {
@@ -36,7 +36,7 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 	failure := 0
 	log.GetInstance().Debug(fmt.Sprintf("Push payload on server(s): %s", jsonValue))
 	for _, url := range instance.BaseUrl {
-		log.GetInstance().Debug(fmt.Sprintf("Request to URL %s", url))
+		log.GetInstance().Info(fmt.Sprintf("Request to URL %s", url))
 		request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 		if err != nil {
 			failure++
@@ -77,9 +77,9 @@ func (instance *Client) MakeQuery(payload string) map[string]string {
 
 // This method is a util function to help the node to push the mertics over the servers.
 // the payload is a JSON string of the payloads.
-func (instance *Client) UploadMetrics(nodeId string, payloads []*string) error {
+func (instance *Client) UploadMetrics(nodeId string, payloads *string) error {
 	//TODO: generalize this method
-	payload := fmt.Sprintf("mutation { addNodeMetrics(input: {node_id: %s, payload_metric_one: %s) { node_id }}", nodeId, *payloads[0])
+	payload := fmt.Sprintf("mutation { addNodeMetrics(input: { node_id: \"%s\", payload_metric_one: \"%s\") { node_id } }", nodeId, *payloads)
 	log.GetInstance().Info(fmt.Sprintf("Query payload is: %s", payload))
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
