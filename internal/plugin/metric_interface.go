@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
 
 	"github.com/vincenzopalazzo/glightning/glightning"
 )

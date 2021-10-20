@@ -7,7 +7,7 @@ ARCH=386
 ARM=
 
 default: fmt lint
-	$(CC) build -o $(NAME) cmd/go-metrics-reported/main.go
+	$(CC) build -o $(NAME) cmd/go-lnmetrics.reporter/main.go
 
 fmt:
 	$(CC) fmt ./...
@@ -19,4 +19,4 @@ check:
 	$(CC) test -v ./...
 
 build:
-	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-metrics-reported/main.go
+	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-lnmetrics.reporter/main.go

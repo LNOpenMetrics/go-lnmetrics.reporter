@@ -7,8 +7,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/vincenzopalazzo/glightning/glightning"
 
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
 )
 
 type MetricsPlugin struct {

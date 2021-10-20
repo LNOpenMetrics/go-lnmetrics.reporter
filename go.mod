@@ -1,4 +1,4 @@
-module github.com/OpenLNMetrics/go-metrics-reported
+module github.com/OpenLNMetrics/go-lnmetrics.reporter
 
 go 1.15
 

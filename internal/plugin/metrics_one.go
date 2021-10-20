@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
 	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
