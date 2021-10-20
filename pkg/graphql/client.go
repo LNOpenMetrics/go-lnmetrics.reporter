@@ -34,7 +34,6 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 	}
 
 	failure := 0
-	log.GetInstance().Debug(fmt.Sprintf("Push payload on server(s): %s", jsonValue))
 	for _, url := range instance.BaseUrl {
 		log.GetInstance().Info(fmt.Sprintf("Request to URL %s", url))
 		request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
@@ -43,6 +42,7 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 			log.GetInstance().Error(fmt.Sprintf("Error with the message \"%s\" during the request to endpoint %s", err, url))
 			continue
 		}
+		request.Header.Set("Content-Type", "application/json")
 		response, err := instance.Client.Do(request)
 		defer func() {
 			if err := response.Body.Close(); err != nil {
@@ -80,7 +80,6 @@ func (instance *Client) MakeQuery(payload string) map[string]string {
 func (instance *Client) UploadMetrics(nodeId string, payloads *string) error {
 	//TODO: generalize this method
 	payload := fmt.Sprintf("mutation { addNodeMetrics(input: { node_id: \"%s\", payload_metric_one: \"%s\") { node_id } }", nodeId, *payloads)
-	log.GetInstance().Info(fmt.Sprintf("Query payload is: %s", payload))
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
 }

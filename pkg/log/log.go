@@ -20,7 +20,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	instance.Log.SetLevel(logrus.DebugLevel)
+	instance.Log.SetLevel(logrus.InfoLevel)
 	file, err := os.OpenFile(dirname+"/metrics.log",
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err == nil {
