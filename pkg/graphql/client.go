@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/OpenLNMetrics/lnmetrics.utils/log"
@@ -77,9 +78,20 @@ func (instance *Client) MakeQuery(payload string) map[string]string {
 
 // This method is a util function to help the node to push the mertics over the servers.
 // the payload is a JSON string of the payloads.
-func (instance *Client) UploadMetrics(nodeId string, payloads *string) error {
+func (instance *Client) UploadMetrics(nodeId string, body *string) error {
 	//TODO: generalize this method
-	payload := fmt.Sprintf("mutation { addNodeMetrics(input: { node_id: \"%s\", payload_metric_one: \"%s\") { node_id } }", nodeId, *payloads)
+	// mutation {
+	//    addNodeMetrics(input: { node_id: "%s", payload_metric_one: "{}"} ){
+	//	node_id
+	//    }
+	// }
+	cleanBody := strings.ReplaceAll(*body, `"`, `\"`)
+	payload := fmt.Sprintf(`mutation {
+                                   addNodeMetrics( input: { node_id: "%s", payload_metric_one: "%s" } ) {
+                                    node_id
+                                   }
+                                }`, nodeId, cleanBody)
+	_ = ioutil.WriteFile("/home/vincent/metrics_debug.json", []byte(payload), 0644)
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
 }
