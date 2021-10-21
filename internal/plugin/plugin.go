@@ -7,8 +7,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/vincenzopalazzo/glightning/glightning"
 
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
 )
 
 type MetricsPlugin struct {
@@ -75,6 +75,7 @@ func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 	}
 }
 
+// Call on stop operation on the node when the caller are shoutdown it self.
 func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 	err := metric.OnClose(msg, instance.Rpc)
 	if err != nil {
@@ -82,6 +83,7 @@ func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 	}
 }
 
+// Update the metrics without any information received by the caller
 func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	log.GetInstance().Debug("Calling Update on metrics")
 	err := metric.Update(instance.Rpc)
@@ -90,13 +92,22 @@ func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	}
 }
 
+func (instance *MetricsPlugin) updateAndUploadMetric(metric Metric) {
+	log.GetInstance().Info("Calling update and upload metric")
+	instance.callUpdateOnMetricNoMsg(metric)
+	if err := metric.Upload(instance.Server); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
+	}
+}
+
+// Register internal recurrent methods
 func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	instance.Cron = cron.New()
-	// FIXME: Discover what is the fist value
+	// FIXME: Discover what is the first value
 	_, err := instance.Cron.AddFunc(after, func() {
-		log.GetInstance().Debug("Calling recurrent")
+		log.GetInstance().Info("Update and Uploading metrics")
 		for _, metric := range instance.Metrics {
-			go instance.callUpdateOnMetricNoMsg(metric)
+			go instance.updateAndUploadMetric(metric)
 		}
 	})
 	if err != nil {

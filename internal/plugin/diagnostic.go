@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	db "github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/OpenLNMetrics/lnmetrics.utils/log"
 )
 
 type DiagnosticRpcMethod struct {

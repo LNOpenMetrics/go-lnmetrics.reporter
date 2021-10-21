@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	maker "github.com/OpenLNMetrics/go-metrics-reported/init/persistence"
-	metrics "github.com/OpenLNMetrics/go-metrics-reported/internal/plugin"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/db"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/graphql"
-	"github.com/OpenLNMetrics/go-metrics-reported/pkg/log"
+	maker "github.com/OpenLNMetrics/go-lnmetrics.reporter/init/persistence"
+	metrics "github.com/OpenLNMetrics/go-lnmetrics.reporter/internal/plugin"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
+	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
 
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/vincenzopalazzo/glightning/glightning"
@@ -24,6 +24,11 @@ func main() {
 	metricsPlugin = metrics.MetricsPlugin{Plugin: plugin,
 		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
+	if err := plugin.RegisterNewOption("lnmetrics-urls", "URLs of remote servers", ""); err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		panic(err)
+	}
+
 	hook := &glightning.Hooks{RpcCommand: OnRpcCommand}
 	if err := plugin.RegisterHooks(hook); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
@@ -36,7 +41,7 @@ func main() {
 
 	// To set the time the following doc is followed
 	// https://pkg.go.dev/github.com/robfig/cron?utm_source=godoc
-	metricsPlugin.RegisterRecurrentEvt("@every 30m")
+	metricsPlugin.RegisterRecurrentEvt("@every 10s")
 
 	metricsPlugin.Cron.Start()
 

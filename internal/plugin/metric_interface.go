@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
+
 	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
@@ -21,6 +23,9 @@ type Metric interface {
 	OnClose(msg *Msg, lightning *glightning.Lightning) error
 	// Call this method to make the status of the metrics persistent
 	MakePersistent() error
+	// Method to store the run a callback to upload the content on the server.
+	// TODO: Use an interface to generalize the client, it can be also a rest api.
+	Upload(client *graphql.Client) error
 	// Call this method when you want update all the metrics without
 	// some particular event throw from c-lightning
 	Update(lightning *glightning.Lightning) error
