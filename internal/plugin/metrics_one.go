@@ -125,7 +125,8 @@ type MetricOne struct {
 	Timezone string `json:"timezone"`
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
-	// map of informatonof channel information
+	// map of informaton of channel information
+	// TODO: managing the dualfound channels
 	ChannelsInfo map[string]*statusChannel `json:"-"`
 }
 

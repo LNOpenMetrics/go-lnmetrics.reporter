@@ -62,7 +62,6 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 			continue
 		}
 		log.GetInstance().Debug(fmt.Sprintf("Result from server %s", result))
-
 	}
 
 	if failure == len(instance.BaseUrl) {
