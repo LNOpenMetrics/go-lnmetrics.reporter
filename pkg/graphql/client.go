@@ -90,7 +90,6 @@ func (instance *Client) UploadMetrics(nodeId string, body *string) error {
                                     node_id
                                    }
                                 }`, nodeId, cleanBody)
-	_ = ioutil.WriteFile("/home/vincent/metrics_debug.json", []byte(payload), 0644)
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
 }
