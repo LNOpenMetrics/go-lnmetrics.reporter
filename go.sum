@@ -8,6 +8,8 @@ github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026063944-ce760f7daaaa h1:x
 github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026063944-ce760f7daaaa/go.mod h1:fSF+Ms1G2UlxTnMxFshT2MFQDxV1RMhGUcb0edrTnss=
 github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026065825-5094b3cd05c5 h1:jc8DTDm8sriA+9xS2WQeZQACOu/gkFtw1SZN5In8HZI=
 github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026065825-5094b3cd05c5/go.mod h1:fSF+Ms1G2UlxTnMxFshT2MFQDxV1RMhGUcb0edrTnss=
+github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026070848-a5e281a3d4f5 h1:ZC//EvyIBs+GmMbgi2drkNXn8LbRRcpk1kg1kybaJQo=
+github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026070848-a5e281a3d4f5/go.mod h1:fSF+Ms1G2UlxTnMxFshT2MFQDxV1RMhGUcb0edrTnss=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/agnivade/levenshtein v1.0.3 h1:M5ZnqLOoZR8ygVq0FfkXsNOKzMCk0xRiow0R5+5VkQ0=
 github.com/agnivade/levenshtein v1.0.3/go.mod h1:4SFRZbbXWLF4MU1T9Qg0pGgH3Pjs+t6ie5efyrwRJXs=

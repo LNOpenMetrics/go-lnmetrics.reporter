@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/Khan/genqlient v0.3.0 // indirect
-	github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026065825-5094b3cd05c5
+	github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026070848-a5e281a3d4f5
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/alexflint/go-scalar v1.1.0 // indirect
 	github.com/elastic/go-sysinfo v1.7.0

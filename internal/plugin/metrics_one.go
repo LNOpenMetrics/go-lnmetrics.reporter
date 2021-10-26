@@ -239,8 +239,6 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			for key, val := range newPayload {
 				payload[key] = val
 			}
-		} else {
-			log.GetInstance().Info("No metric with empity key")
 		}
 	}
 
