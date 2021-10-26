@@ -45,16 +45,16 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 		}
 		request.Header.Set("Content-Type", "application/json")
 		response, err := instance.Client.Do(request)
-		defer func() {
-			if err := response.Body.Close(); err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			}
-		}()
 		if err != nil {
 			failure++
 			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
 			continue
 		}
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+			}
+		}()
 		result, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			failure++
