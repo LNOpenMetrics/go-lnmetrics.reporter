@@ -45,16 +45,16 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 		}
 		request.Header.Set("Content-Type", "application/json")
 		response, err := instance.Client.Do(request)
-		defer func() {
-			if err := response.Body.Close(); err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			}
-		}()
 		if err != nil {
 			failure++
 			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
 			continue
 		}
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+			}
+		}()
 		result, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			failure++
@@ -62,7 +62,6 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 			continue
 		}
 		log.GetInstance().Debug(fmt.Sprintf("Result from server %s", result))
-
 	}
 
 	if failure == len(instance.BaseUrl) {
@@ -91,7 +90,6 @@ func (instance *Client) UploadMetrics(nodeId string, body *string) error {
                                     node_id
                                    }
                                 }`, nodeId, cleanBody)
-	_ = ioutil.WriteFile("/home/vincent/metrics_debug.json", []byte(payload), 0644)
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
 }

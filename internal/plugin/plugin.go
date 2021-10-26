@@ -8,7 +8,7 @@ import (
 	"github.com/vincenzopalazzo/glightning/glightning"
 
 	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
+	"github.com/OpenLNMetrics/lnmetrics.utils/log"
 )
 
 type MetricsPlugin struct {

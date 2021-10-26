@@ -9,8 +9,8 @@ import (
 	maker "github.com/OpenLNMetrics/go-lnmetrics.reporter/init/persistence"
 	metrics "github.com/OpenLNMetrics/go-lnmetrics.reporter/internal/plugin"
 	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
 	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/OpenLNMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/vincenzopalazzo/glightning/glightning"
@@ -25,17 +25,14 @@ func main() {
 		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
 	if err := plugin.RegisterNewOption("lnmetrics-urls", "URLs of remote servers", ""); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		panic(err)
 	}
 
 	hook := &glightning.Hooks{RpcCommand: OnRpcCommand}
 	if err := plugin.RegisterHooks(hook); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		panic(err)
 	}
 	if err := metricsPlugin.RegisterMethods(); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		panic(err)
 	}
 
@@ -47,7 +44,6 @@ func main() {
 
 	err := plugin.Start(os.Stdin, os.Stdout)
 	if err != nil {
-		log.GetInstance().Error(err)
 		panic(err)
 	}
 }
@@ -55,6 +51,11 @@ func main() {
 func onInit(plugin *glightning.Plugin,
 	options map[string]glightning.Option, config *glightning.Config) {
 	metricsPlugin.Rpc = glightning.NewLightning()
+
+	// TODO: make possible that the user will choose the log level.
+	if err := log.InitLogger(config.LightningDir, "debug", false); err != nil {
+		log.GetInstance().Error(err)
+	}
 
 	metricsPlugin.Rpc.StartUp(config.RpcFile, config.LightningDir)
 	metricsPath, err := maker.PrepareHomeDirectory(config.LightningDir)

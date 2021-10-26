@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
 	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/OpenLNMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/vincenzopalazzo/glightning/glightning"
@@ -125,7 +125,8 @@ type MetricOne struct {
 	Timezone string `json:"timezone"`
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
-	// map of informatonof channel information
+	// map of informaton of channel information
+	// TODO: managing the dualfound channels
 	ChannelsInfo map[string]*statusChannel `json:"-"`
 }
 
@@ -198,7 +199,6 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 }
 
 func init() {
-	log.GetInstance().Debug("Init metrics map with all the name")
 	MetricsSupported = make(map[int]string)
 	MetricsSupported[1] = "metric_one"
 
@@ -239,8 +239,6 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			for key, val := range newPayload {
 				payload[key] = val
 			}
-		} else {
-			log.GetInstance().Info("No metric with empity key")
 		}
 	}
 
