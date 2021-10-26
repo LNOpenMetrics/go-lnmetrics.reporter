@@ -20,3 +20,6 @@ check:
 
 build:
 	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-lnmetrics.reporter/main.go
+
+update_utils:
+	$(CC) get -u github.com/OpenLNMetrics/lnmetrics.utils

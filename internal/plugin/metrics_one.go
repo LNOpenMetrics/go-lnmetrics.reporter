@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/log"
 	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/OpenLNMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/vincenzopalazzo/glightning/glightning"
@@ -199,7 +199,6 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 }
 
 func init() {
-	log.GetInstance().Debug("Init metrics map with all the name")
 	MetricsSupported = make(map[int]string)
 	MetricsSupported[1] = "metric_one"
 
