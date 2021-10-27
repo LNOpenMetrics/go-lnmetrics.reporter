@@ -16,9 +16,10 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vektah/gqlparser/v2 v2.2.0 // indirect
 	github.com/vincenzopalazzo/cpstl/go v0.0.0-20210802220150-6acfbf585502 // indirect
-	github.com/vincenzopalazzo/glightning v0.8.3-0.20211003145319-87ad168ff299
+	github.com/vincenzopalazzo/glightning v0.8.3-0.20211027092546-52b0b2cd4373
 	github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a // indirect
 	golang.org/x/mod v0.5.1 // indirect
+	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
 	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 )

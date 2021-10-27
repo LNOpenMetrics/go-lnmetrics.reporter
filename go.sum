@@ -110,6 +110,12 @@ github.com/vincenzopalazzo/glightning v0.8.3-0.20211003143735-95b507670bac h1:EN
 github.com/vincenzopalazzo/glightning v0.8.3-0.20211003143735-95b507670bac/go.mod h1:zNMKjmjwMOPLoeWV7/u6NgC3o/VUGha/Vb1x2AsM3T0=
 github.com/vincenzopalazzo/glightning v0.8.3-0.20211003145319-87ad168ff299 h1:R1m5hLZJrdBPG5Mv5sq4S8pSTNukYpLxlrwCbj1Gyi8=
 github.com/vincenzopalazzo/glightning v0.8.3-0.20211003145319-87ad168ff299/go.mod h1:zNMKjmjwMOPLoeWV7/u6NgC3o/VUGha/Vb1x2AsM3T0=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211027090042-fa8ac05c16d1 h1:i+BlfSQZ0ABMy8jzEWtCTUZ/OE4D1Bg5th5lIcH34Bs=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211027090042-fa8ac05c16d1/go.mod h1:ZxbrqNnk5I0/qZo0Xgs+8RIhLUD0qeQkhHR7lLW0MM0=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211027091709-712e670bd67a h1:4SEVNzps7pu5XcxkUN+yS3aJDaZEOP1wom9MF2IhPWs=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211027091709-712e670bd67a/go.mod h1:ZxbrqNnk5I0/qZo0Xgs+8RIhLUD0qeQkhHR7lLW0MM0=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211027092546-52b0b2cd4373 h1:pWuDyPTLlvK1YcYP0ZuZIZA86yIxODO1Dxg45bWTrdQ=
+github.com/vincenzopalazzo/glightning v0.8.3-0.20211027092546-52b0b2cd4373/go.mod h1:ZxbrqNnk5I0/qZo0Xgs+8RIhLUD0qeQkhHR7lLW0MM0=
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 github.com/yuin/goldmark v1.4.0/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a h1:Km41y+ivLvjwZLDJO5/x+NsZrXT+MxrNTLxqs0KnR+I=
@@ -126,6 +132,7 @@ golang.org/x/net v0.0.0-20190311183353-d8887717615a/go.mod h1:t9HGtf8HONx5eT2rtn
 golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4/go.mod h1:p54w0d4576C0XHj96bSt6lcn1PtDYWL6XObtHCRCNQM=
+golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d h1:20cMwl2fHAzkJMEA+8J4JgqBQcQGzbisXo31MIeenXI=
 golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
