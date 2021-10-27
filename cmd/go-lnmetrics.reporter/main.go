@@ -67,7 +67,7 @@ func onInit(plugin *glightning.Plugin,
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		panic(err)
 	}
-	err = parseOptionsPlugin(options)
+	err = parseOptionsPlugin(config, options)
 	if err != nil {
 		log.GetInstance().Error(err)
 		panic(err)
@@ -96,7 +96,7 @@ func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResp
 }
 
 // This method include the code to parse the configuration options of the plugin.
-func parseOptionsPlugin(options map[string]glightning.Option) error {
+func parseOptionsPlugin(pluginConfig *glightning.Config, options map[string]glightning.Option) error {
 	urlsAsString, found := options["lnmetrics-urls"]
 	urls := make([]string, 0)
 	if found {
@@ -104,7 +104,18 @@ func parseOptionsPlugin(options map[string]glightning.Option) error {
 			return r == ','
 		})
 	}
-	metricsPlugin.Server = graphql.New(urls)
+
+	if pluginConfig.Proxy != nil {
+		proxy := pluginConfig.Proxy
+		server, err := graphql.NewWithProxy(urls, proxy.Address, proxy.Port)
+		if err != nil {
+			return err
+		}
+		metricsPlugin.Server = server
+	} else {
+		metricsPlugin.Server = graphql.New(urls)
+	}
+
 	// FIXME: Store the urls on db.
 	return nil
 }
