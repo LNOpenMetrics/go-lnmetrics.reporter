@@ -5,6 +5,7 @@ BASE_DIR=/script
 OS=linux
 ARCH=386
 ARM=
+GORPC_COMMIT=52b0b2cd43735132e59da994177f4242d51cae1a
 
 default: fmt lint
 	$(CC) build -o $(NAME) cmd/go-lnmetrics.reporter/main.go
@@ -23,3 +24,5 @@ build:
 
 update_utils:
 	$(CC) get -u github.com/OpenLNMetrics/lnmetrics.utils
+	$(CC) get -u github.com/vincenzopalazzo/glightning@$(GORPC_COMMIT)
+	$(CC) mod vendor

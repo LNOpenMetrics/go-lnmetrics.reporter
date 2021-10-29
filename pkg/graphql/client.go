@@ -2,9 +2,12 @@ package graphql
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/proxy"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -17,13 +20,52 @@ type Client struct {
 	// make the request.
 	BaseUrl []string
 	// Token to autenticate to the server
-	Token  *string
-	Client *http.Client
+	Token     *string
+	Client    *http.Client
+	WithProxy bool
 }
 
 // Builder method to make a new client
 func New(baseUrl []string) *Client {
-	return &Client{BaseUrl: baseUrl, Client: &http.Client{Timeout: time.Second * 10}}
+	return &Client{
+		BaseUrl:   baseUrl,
+		Client:    &http.Client{Timeout: time.Second * 10},
+		WithProxy: false,
+	}
+}
+
+func NewWithProxy(baseUrl []string, hostProxy string, portProxy uint64) (*Client, error) {
+	// From: https://www.reddit.com/r/golang/comments/3qbdbf/how_can_i_create_an_http_request_with_socks5_proxy/
+	proxyAddr := strings.Join([]string{hostProxy, fmt.Sprint(portProxy)}, ":")
+	log.GetInstance().Info(fmt.Sprintf("Proxy url: %s", proxyAddr))
+	dialer, err := proxy.SOCKS5("tcp", proxyAddr, nil, proxy.Direct)
+	if err != nil {
+		log.GetInstance().Error(
+			fmt.Sprintf("Error during connection with proxy: %s", err),
+		)
+		return nil, err
+	}
+
+	dialContext := func(ctx context.Context, network, address string) (net.Conn, error) {
+		// do anything with ctx
+		return dialer.Dial(network, address)
+	}
+
+	httpTransport := &http.Transport{DialContext: dialContext}
+
+	return &Client{
+		BaseUrl: baseUrl,
+		Client: &http.Client{
+			Timeout:   time.Second * 10,
+			Transport: httpTransport,
+		},
+		WithProxy: true,
+	}, nil
+}
+
+// TODO: move in a utils module
+func isOnionUrl(url string) bool {
+	return strings.HasPrefix(url, ".onion")
 }
 
 // Make Request is the method to make the http request
@@ -37,6 +79,10 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 	failure := 0
 	for _, url := range instance.BaseUrl {
 		log.GetInstance().Info(fmt.Sprintf("Request to URL %s", url))
+		if !instance.WithProxy && isOnionUrl(url) {
+			log.GetInstance().Debug(fmt.Sprintf("Skipped request to url %s because the proxy it is not configured in the plugin", url))
+			continue
+		}
 		request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 		if err != nil {
 			failure++
