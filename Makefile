@@ -19,6 +19,9 @@ lint:
 check:
 	$(CC) test -v ./...
 
+check-dev:
+	richgo test ./... -v
+
 build:
 	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-lnmetrics.reporter/main.go
 

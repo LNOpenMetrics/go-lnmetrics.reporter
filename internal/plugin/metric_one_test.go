@@ -33,10 +33,15 @@ func TestJSONSerializzation(t *testing.T) {
    "metric_name": "metric_one",
    "node_id": "<<PRESENCE>>",
    "node_alias": "<<PRESENCE>>",
+   "network": "<<PRESENCE>>",
    "os_info": {
       "architecture": "<<PRESENCE>>",
       "os": "<<PRESENCE>>",
       "version": "<<PRESENCE>>"
+   },
+   "node_info": {
+       "implementation": "<<PRESENCE>>",
+       "version": "<<PRESENCE>>"
    },
    "timezone": "<<PRESENCE>>",
    "up_time": [],

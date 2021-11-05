@@ -109,6 +109,13 @@ type PaymentsSummary struct {
 	Failed    uint64 `json:"failed"`
 }
 
+// Contains the info about the ln node.
+type NodeInfo struct {
+	Implementation string `json:"implementation"`
+	Version        string `json:"version"`
+}
+
+// Main data structure that it is filled by the collection data phase.
 type MetricOne struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
@@ -116,11 +123,19 @@ type MetricOne struct {
 	// JSON payload from previous version of plugin.
 	Version int `json:"version"`
 	// Name of the metrics
-	Name      string  `json:"metric_name"`
-	NodeId    string  `json:"node_id"`
-	NodeAlias string  `json:"node_alias"`
-	Color     string  `json:"color"`
-	OSInfo    *osInfo `json:"os_info"`
+	Name string `json:"metric_name"`
+	// Public Key of the Node
+	NodeId string `json:"node_id"`
+	// Node Alias on the network
+	NodeAlias string `json:"node_alias"`
+	// Color of the node
+	Color string `json:"color"`
+	// Network where the node it is running
+	Network string `json:"network"`
+	// OS host information
+	OSInfo *osInfo `json:"os_info"`
+	// Node information, like version/implementation
+	NodeInfo *NodeInfo `json:"node_info"`
 	// timezone where the node is located
 	Timezone string `json:"timezone"`
 	// array of the up_time
@@ -199,6 +214,7 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 }
 
 func init() {
+	// TODO: Fill this map on some common package.
 	MetricsSupported = make(map[int]string)
 	MetricsSupported[1] = "metric_one"
 
@@ -212,14 +228,23 @@ func init() {
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 	return &MetricOne{id: 1, Version: 1,
 		Name: MetricsSupported[1], NodeId: nodeId,
-		NodeAlias: "TODO: propriety missed",
+		NodeAlias: "unknown",
+		Network:   "unknown",
 		OSInfo: &osInfo{OS: sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
 			Architecture: sysInfo.Architecture},
+		NodeInfo: &NodeInfo{
+			Implementation: "unknown",
+			Version:        "unknown",
+		},
 		Timezone: sysInfo.Timezone, UpTime: make([]*status, 0),
 		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
 }
 
+// Migrate from a payload format to another, with the help of the version number.
+// Note that it is required implementing a required strategy only if the some
+// properties will change during the time, if somethings it is only add, we
+// don't have anythings to migrate.
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	// in the test for the moment the db it is not ready
 	if db.GetInstance().Ready() {
@@ -264,6 +289,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	return nil
 }
 
+// Generic Plugin callback that it is ran each time that the plugin need to recording a new event.
 func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
 	listFunds, err := lightning.ListFunds()
 	if err != nil {
@@ -302,6 +328,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 	return status, nil
 }
 
+// One time callback called from the lightning implementation
 func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	getInfo, err := lightning.GetInfo()
 	if err != nil {
@@ -312,6 +339,11 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	instance.NodeId = getInfo.Id
 	instance.Color = getInfo.Color
 	instance.NodeAlias = getInfo.Alias
+	instance.Network = getInfo.Network
+	instance.NodeInfo = &NodeInfo{
+		Implementation: "c-lightning", // It is easy, it is coupled with c-lightning plugin now
+		Version:        getInfo.Version,
+	}
 	status, err := instance.onEvent("on_start", lightning)
 	if err != nil {
 		return err
