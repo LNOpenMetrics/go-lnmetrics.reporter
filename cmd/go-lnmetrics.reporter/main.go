@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	maker "github.com/OpenLNMetrics/go-lnmetrics.reporter/init/persistence"
-	metrics "github.com/OpenLNMetrics/go-lnmetrics.reporter/internal/plugin"
-	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
-	"github.com/OpenLNMetrics/lnmetrics.utils/log"
+	maker "github.com/LNOpenMetrics/go-lnmetrics.reporter/init/persistence"
+	metrics "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/vincenzopalazzo/glightning/glightning"

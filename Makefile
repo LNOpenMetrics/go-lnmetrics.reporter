@@ -19,10 +19,13 @@ lint:
 check:
 	$(CC) test -v ./...
 
+check-dev:
+	richgo test ./... -v
+
 build:
 	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-lnmetrics.reporter/main.go
 
 update_utils:
-	$(CC) get -u github.com/OpenLNMetrics/lnmetrics.utils
+	$(CC) get -u github.com/LNOpenMetrics/lnmetrics.utils
 	$(CC) get -u github.com/vincenzopalazzo/glightning@$(GORPC_COMMIT)
 	$(CC) mod vendor

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenLNMetrics/lnmetrics.utils/log"
+	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
 type Client struct {

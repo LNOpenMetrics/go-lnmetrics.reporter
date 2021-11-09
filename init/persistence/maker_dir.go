@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	log "github.com/OpenLNMetrics/lnmetrics.utils/log"
+	log "github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
 func PrepareHomeDirectory(lightningPath string) (*string, error) {

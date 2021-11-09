@@ -1,25 +1,30 @@
-module github.com/OpenLNMetrics/go-lnmetrics.reporter
+module github.com/LNOpenMetrics/go-lnmetrics.reporter
 
-go 1.15
+go 1.17
 
 require (
-	github.com/Khan/genqlient v0.3.0 // indirect
-	github.com/OpenLNMetrics/lnmetrics.utils v0.0.0-20211026070848-a5e281a3d4f5
-	github.com/agnivade/levenshtein v1.1.1 // indirect
-	github.com/alexflint/go-scalar v1.1.0 // indirect
-	github.com/elastic/go-sysinfo v1.7.0
-	github.com/kinbiko/jsonassert v1.0.1
-	github.com/niftynei/glightning v0.8.2 // indirect
+	github.com/LNOpenMetrics/lnmetrics.utils v0.0.0-20211109065240-8b2308c6c67a
+	github.com/elastic/go-sysinfo v1.7.1
+	github.com/kinbiko/jsonassert v1.0.2
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.0 // indirect
-	github.com/syndtr/goleveldb v1.0.0
-	github.com/vektah/gqlparser/v2 v2.2.0 // indirect
-	github.com/vincenzopalazzo/cpstl/go v0.0.0-20210802220150-6acfbf585502 // indirect
 	github.com/vincenzopalazzo/glightning v0.8.3-0.20211027092546-52b0b2cd4373
-	github.com/zcalusic/sysinfo v0.0.0-20210609180555-aff387a52b3a // indirect
-	golang.org/x/mod v0.5.1 // indirect
-	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d
-	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654 // indirect
-	golang.org/x/tools v0.1.7 // indirect
+	golang.org/x/net v0.0.0-20180906233101-161cd47e91fd
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/elastic/go-windows v1.0.0 // indirect
+	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
+	github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901 // indirect
+	github.com/niftynei/glightning v0.8.2 // indirect
+	github.com/pkg/errors v0.8.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/procfs v0.0.0-20190425082905-87a4384529e0 // indirect
+	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/stretchr/objx v0.1.0 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/syndtr/goleveldb v1.0.0 // indirect
+	golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
+	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
 )
