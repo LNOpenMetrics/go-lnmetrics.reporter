@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	db "github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
-	"github.com/OpenLNMetrics/lnmetrics.utils/log"
+	db "github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
 type DiagnosticRpcMethod struct {

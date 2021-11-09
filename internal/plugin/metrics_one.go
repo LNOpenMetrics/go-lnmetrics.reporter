@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/OpenLNMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
-	"github.com/OpenLNMetrics/lnmetrics.utils/log"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/vincenzopalazzo/glightning/glightning"

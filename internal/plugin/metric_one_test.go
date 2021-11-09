@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/OpenLNMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
 
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/kinbiko/jsonassert"
