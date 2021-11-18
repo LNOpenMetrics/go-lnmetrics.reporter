@@ -29,7 +29,7 @@ type Client struct {
 func New(baseUrl []string) *Client {
 	return &Client{
 		BaseUrl:   baseUrl,
-		Client:    &http.Client{Timeout: time.Second * 10},
+		Client:    &http.Client{Timeout: time.Second * 90},
 		WithProxy: false,
 	}
 }
@@ -51,12 +51,12 @@ func NewWithProxy(baseUrl []string, hostProxy string, portProxy uint64) (*Client
 		return dialer.Dial(network, address)
 	}
 
-	httpTransport := &http.Transport{DialContext: dialContext}
+	httpTransport := &http.Transport{DialContext: dialContext, DisableKeepAlives: true}
 
 	return &Client{
 		BaseUrl: baseUrl,
 		Client: &http.Client{
-			Timeout:   time.Second * 10,
+			Timeout:   time.Second * 90,
 			Transport: httpTransport,
 		},
 		WithProxy: true,
