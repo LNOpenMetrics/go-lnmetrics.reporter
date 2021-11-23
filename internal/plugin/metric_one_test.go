@@ -43,6 +43,7 @@ func TestJSONSerializzation(t *testing.T) {
        "implementation": "<<PRESENCE>>",
        "version": "<<PRESENCE>>"
    },
+   "address": [],
    "timezone": "<<PRESENCE>>",
    "up_time": [],
    "version": "<<PRESENCE>>"

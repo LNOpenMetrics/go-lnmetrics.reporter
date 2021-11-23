@@ -117,25 +117,36 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 	return nil
 }
 
+// Private function to clean the payload to migrate strings with " to \"
+func (instance *Client) cleanBody(payload *string) *string {
+	replace := strings.ReplaceAll(*payload, `"`, `\"`)
+	return &replace
+}
+
+// TODO: adding parameters
 func (instance *Client) MakeQuery(payload string) map[string]string {
 	return map[string]string{"query": payload}
 }
 
-// This method is a util function to help the node to push the mertics over the servers.
-// the payload is a JSON string of the payloads.
-func (instance *Client) UploadMetrics(nodeId string, body *string) error {
-	//TODO: generalize this method
-	// mutation {
-	//    addNodeMetrics(input: { node_id: "%s", payload_metric_one: "{}"} ){
-	//	node_id
-	//    }
-	// }
-	cleanBody := strings.ReplaceAll(*body, `"`, `\"`)
+func (instance *Client) InitMetric(nodeID string, body *string, signature string) error {
+	body = instance.cleanBody(body)
 	payload := fmt.Sprintf(`mutation {
-                                   addNodeMetrics( input: { node_id: "%s", payload_metric_one: "%s" } ) {
+                                  initMetricOne(node_id: "%s, payload: "%s", signature: "%s") {
+                                    node_id
+                                  }
+                               }`, nodeID, *body, signature)
+	query := instance.MakeQuery(payload)
+	return instance.MakeRequest(query)
+}
+
+// Utils Function to update the with the last data the metrics on server..
+func (instance *Client) UploadMetric(nodeID string, body *string, signature string) error {
+	cleanBody := instance.cleanBody(body)
+	payload := fmt.Sprintf(`mutation {
+                                   updateMetricOne(node_id: "%s", payload: "%s", signature: "%s") {
                                     node_id
                                    }
-                                }`, nodeId, cleanBody)
+                                }`, nodeID, *cleanBody, signature)
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
 }
