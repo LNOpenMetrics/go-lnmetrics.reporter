@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
@@ -84,7 +85,7 @@ type statusChannel struct {
 	// how payment the channel forwords
 	Forwards []*PaymentInfo `json:"forwards"`
 	// The node answer from the ping operation
-	UpTimes []*channelStatus `json:"up_times"`
+	UpTimes []*channelStatus `json:"up_time"`
 	// the node is ready to receive payment to share?
 	Online bool `json:"online"`
 	// last message (channel_update) received from the gossip
@@ -125,33 +126,50 @@ type NodeAddress struct {
 type MetricOne struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
+
 	// Version of metrics format, it is used to migrate the
 	// JSON payload from previous version of plugin.
 	Version int `json:"version"`
+
 	// Name of the metrics
 	Name string `json:"metric_name"`
+
 	// Public Key of the Node
 	NodeID string `json:"node_id"`
+
 	// Node Alias on the network
 	NodeAlias string `json:"node_alias"`
+
 	// Color of the node
 	Color string `json:"color"`
+
 	// Network where the node it is running
 	Network string `json:"network"`
+
 	// OS host information
 	OSInfo *osInfo `json:"os_info"`
+
 	// Node information, like version/implementation
 	NodeInfo *NodeInfo `json:"node_info"`
+
 	// Node address, where the node will be reachable by other node
 	Address []*NodeAddress `json:"address"`
+
 	// timezone where the node is located
 	Timezone string `json:"timezone"`
+
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
+
 	// map of informaton of channel information
 	// TODO: managing the dualfunding channels
-	// TODO: I need also to maintains the history?
 	ChannelsInfo map[string]*statusChannel `json:"-"`
+
+	// Last check of the plugin, useful to store the data
+	// in the db by timestamp
+	lastCheck int `json:"-"`
+	// Storage reference
+	Storage db.PluginDatabase `json:"-"`
 }
 
 func (m MetricOne) MarshalJSON() ([]byte, error) {
@@ -234,7 +252,7 @@ func init() {
 }
 
 // This method is required by the
-func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
+func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *MetricOne {
 	return &MetricOne{id: 1, Version: 1,
 		Name:      MetricsSupported[1],
 		NodeID:    nodeId,
@@ -249,7 +267,13 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 		},
 		Address:  make([]*NodeAddress, 0),
 		Timezone: sysInfo.Timezone, UpTime: make([]*status, 0),
-		ChannelsInfo: make(map[string]*statusChannel), Color: ""}
+		ChannelsInfo: make(map[string]*statusChannel), Color: "",
+		Storage: storage,
+	}
+}
+
+func (instance *MetricOne) MetricName() *string {
+	return &instance.Name
 }
 
 // Migrate from a payload format to another, with the help of the version number.
@@ -257,27 +281,6 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo) *MetricOne {
 // properties will change during the time, if somethings it is only add, we
 // don't have anythings to migrate.
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
-	// in the test for the moment the db it is not ready
-	if db.GetInstance().Ready() {
-		metric, err := db.GetInstance().GetValue("")
-		if err == nil {
-			var newPayload map[string]interface{}
-			log.GetInstance().Info("Migrate the new payload stored with the empty key")
-			if err := json.Unmarshal([]byte(metric), &newPayload); err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
-				return err
-			}
-			if err := db.GetInstance().DeleteValue(""); err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error %s", err))
-				return err
-			}
-
-			for key, val := range newPayload {
-				payload[key] = val
-			}
-		}
-	}
-
 	version, found := payload["version"]
 
 	if !found || int(version.(float64)) < 1 {
@@ -362,7 +365,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 		return false, err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-
+	instance.lastCheck = int(status.Timestamp)
 	for _, address := range getInfo.Addresses {
 		nodeAddress := &NodeAddress{
 			Type: address.Type,
@@ -383,12 +386,13 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
+	instance.lastCheck = int(status.Timestamp)
 	return instance.MakePersistent()
 }
 
 func (metric *MetricOne) UpdateWithMsg(message *Msg,
 	lightning *glightning.Lightning) error {
-	return nil
+	return fmt.Errorf("Method not supported")
 }
 
 func (instance *MetricOne) MakePersistent() error {
@@ -397,7 +401,8 @@ func (instance *MetricOne) MakePersistent() error {
 		log.GetInstance().Error(fmt.Sprintf("JSON error %s", err))
 		return err
 	}
-	return db.GetInstance().PutValue(instance.Name, json)
+	//TODO put the timestamp as argument
+	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &json)
 }
 
 // here the message is not useful, but we keep it only for future evolution
@@ -410,10 +415,12 @@ func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) er
 		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
 		forwards = instance.UpTime[len(instance.UpTime)-1].Forwards
 	}
+	now := time.Now().Unix()
 	instance.UpTime = append(instance.UpTime,
 		&status{Event: "on_close",
-			Timestamp: time.Now().Unix(),
+			Timestamp: now,
 			Channels:  lastValue, Forwards: forwards})
+	instance.lastCheck = int(now)
 	return instance.MakePersistent()
 }
 

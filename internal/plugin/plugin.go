@@ -7,6 +7,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/vincenzopalazzo/glightning/glightning"
 
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
@@ -17,6 +18,7 @@ type MetricsPlugin struct {
 	Rpc     *glightning.Lightning
 	Cron    *cron.Cron
 	Server  *graphql.Client
+	Storage db.PluginDatabase
 }
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {

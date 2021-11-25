@@ -1,58 +1,170 @@
 package db
 
 import (
-	_ "github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+	"fmt"
+	"strconv"
+	"strings"
 
-	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
+	db "github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
 type LevelDB struct {
-	// The version of the data-model on the database
-	VersionData uint
+	// Global database version to know basically
+	// how the key are stored.
+	dbVersion int
+	// Global Key in the database to get the data model version
+	dbKeyDb string
+	// dictionary with the a diction that contains a mapping
+	// to get the correct version by the following info:
+	// - metric_name
+	// - dbVersion
+	metricsDbKeys map[string]string
 }
 
 func NewLevelDB(path string) (PluginDatabase, error) {
+
+	dbKey := "db_data_version"
+
+	if err := db.GetInstance().InitDB(path); err != nil {
+		return nil, err
+	}
+
+	dataVersion, err := db.GetInstance().GetValue(dbKey)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Checking DV data version return an error like: %s", err))
+		dataVersion = "1"
+		if err := db.GetInstance().PutValue(dbKey, dataVersion); err != nil {
+			return nil, err
+		}
+	}
+
+	log.GetInstance().Info(fmt.Sprintf("Db with data model version %s", dataVersion))
+
+	dataVersionConv, err := strconv.Atoi(dataVersion)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &LevelDB{
-		VersionData: 1,
+		dbVersion: dataVersionConv,
+		dbKeyDb:   dbKey,
+		metricsDbKeys: map[string]string{
+			"metric_one/1": "metric_one",
+			"metric_one/2": "metric_one",
+		},
 	}, nil
 }
 
-// Empty implementation, here level db have no real data-model
-func (instance *LevelDB) CreateMetric() error {
-	// TODO: make sure that the index db will be there
-	// TODO: make sure that the data version will be there
+func (instance *LevelDB) PutValue(key string, value *string) error {
+	return db.GetInstance().PutValue(key, *value)
+}
+
+func (instance *LevelDB) GetValue(key string) (*string, error) {
+	value, err := db.GetInstance().GetValue(key)
+	return &value, err
+}
+
+func (instance *LevelDB) DeleteValue(key string) error {
+	return db.GetInstance().DeleteValue(key)
+}
+
+func (instance *LevelDB) IsReady() bool {
+	return db.GetInstance().Ready()
+}
+
+func (instance *LevelDB) StoreMetricOneSnapshot(timestamp int, payload *string) error {
+	key := strings.Join([]string{"metric_one", fmt.Sprint(timestamp)}, "/")
+	if err := instance.PutValue(key, payload); err != nil {
+		return err
+	}
+	timestampStr := fmt.Sprint(timestamp)
+	keyLastUpt := strings.Join([]string{"metric_one", "last"}, "/")
+	if err := instance.PutValue(keyLastUpt, &timestampStr); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (instance *LevelDB) LoadLastMetricOne() (*string, error) {
+	keyValue := strings.Join([]string{"metric_one", "last"}, "/")
+	lastUpdate, err := instance.GetValue(keyValue)
+	if err != nil {
+		return nil, fmt.Errorf("Last metric it is not present in the db")
+	}
+	return lastUpdate, nil
 }
 
 // Take the version of the data and apply the procedure
 // to migrate the database.
-func (instance *LevelDB) Migrate() error {
+func (instance *LevelDB) Migrate(metrics []*string) error {
+	for _, metric := range metrics {
+		switch *metric {
+		case "metric_one":
+			if err := instance.migrateMetricOne(); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("Metric with key %s is not supported", *metric)
+		}
+	}
+
 	return nil
 }
 
-// Return the version of data-model
-func (instance *LevelDB) GetDataVersion() (uint, error) {
-	return instance.VersionData, nil
-}
-
-// TODO: Adding in the metric interface a new method that get back
-// a map with all the information useful to make a metric id for database.
-// P.S: We need a map because if we want migrate to a graphdb in this case
-// we need another way to do that.
-func (instance *LevelDB) MetricBaseID(metric plugin.Metric) string {
-	return ""
-}
-
-// Store metric in the database,
-// TODO: We need to specify how this process looks like,
-// because we need to access to all the metrics details.
-func (instance *LevelDB) StoreMetric(metric plugin.Metric) error {
+// Private function that migrate (if needed) the metrics from one key to another key.
+func (instance *LevelDB) migrateMetricOne() error {
+	// 1. Check the global version of the db
+	// 2. Load the metric
+	// 3. See if the metrics can be migrated by version number
+	// 3.1 Migrate the version with in the new version of the data-model.
+	if instance.dbVersion == 1 {
+		// migrate to version two.
+		return instance.migrateMetricOneToVersionTwo()
+	}
 	return nil
 }
 
-// Get the metric back
-func (instance *LevelDB) GetMetric(metricID uint, startPeriod int, endPeriod int) (plugin.Metric, error) {
-	// TODO: define how this method looks like, and how make this operation
-	// with a generic metric.
-	return nil, nil
+func (instance *LevelDB) migrateMetricOneToVersionTwo() error {
+	dictKey := strings.Join([]string{"metric_one", fmt.Sprint(instance.dbVersion)}, "/")
+	metricKey := instance.metricsDbKeys[dictKey]
+
+	// the full payload it is store in the single
+	// instance
+	metricJson, err := db.GetInstance().GetValue(metricKey)
+	if err != nil {
+		return err
+	}
+
+	instance.dbVersion = 2
+	dictKey = strings.Join([]string{"metric_one", fmt.Sprint(instance.dbVersion)}, "/")
+
+	oldMetricKey := metricKey
+	metricKey = instance.metricsDbKeys[dictKey]
+	oldKey := strings.Join([]string{metricKey, "old"}, "/")
+	if err := db.GetInstance().PutValue(oldKey, metricJson); err != nil {
+		return err
+	}
+
+	if err := db.GetInstance().DeleteValue(oldMetricKey); err != nil {
+		return err
+	}
+
+	if err := db.GetInstance().PutValue(instance.dbKeyDb, fmt.Sprint(instance.dbVersion)); err != nil {
+		return err
+	}
+
+	// store the new version of the data.
+	return nil
+}
+
+// Close the database
+func (instance *LevelDB) CloseDatabase() error {
+	return db.GetInstance().CloseDatabase()
+}
+
+// Erase the Database and lost the data forever
+func (instance *LevelDB) EraseDatabase() error {
+	return db.GetInstance().EraseDatabase()
 }
