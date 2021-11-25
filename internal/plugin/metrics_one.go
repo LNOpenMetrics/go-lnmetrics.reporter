@@ -273,7 +273,8 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 }
 
 func (instance *MetricOne) MetricName() *string {
-	return &instance.Name
+	metricName := MetricsSupported[1]
+	return &metricName
 }
 
 // Migrate from a payload format to another, with the help of the version number.
@@ -447,6 +448,9 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 	if err := client.InitMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
 		return err
 	}
+
+	instance.UpTime = make([]*status, 0)
+	instance.ChannelsInfo = make(map[string]*statusChannel)
 
 	t := time.Now()
 	log.GetInstance().Info(fmt.Sprintf("Metric One Initialized on server at %s", t.Format(time.RFC850)))

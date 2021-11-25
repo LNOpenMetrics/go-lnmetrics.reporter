@@ -32,6 +32,7 @@ func main() {
 	if err := plugin.RegisterHooks(hook); err != nil {
 		panic(err)
 	}
+
 	if err := metricsPlugin.RegisterMethods(); err != nil {
 		panic(err)
 	}
@@ -79,20 +80,21 @@ func onInit(plugin *glightning.Plugin,
 	//TODO: Load all the metrics in the datatabase that are registered from
 	// the user
 	metric, err := loadMetricIfExist(1)
-	if err := metricsPlugin.Storage.Migrate([]*string{metric.MetricName()}); err != nil {
-		panic(err)
-	}
+
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
 
+	if err := metricsPlugin.Storage.Migrate([]*string{metric.MetricName()}); err != nil {
+		panic(err)
+	}
 	if err := metricsPlugin.RegisterMetrics(1, metric); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
 
-	metricsPlugin.RegisterOneTimeEvt("10s")
+	metricsPlugin.RegisterOneTimeEvt("30m")
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {

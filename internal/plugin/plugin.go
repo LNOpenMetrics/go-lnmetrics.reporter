@@ -51,7 +51,7 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 }
 
 func (plugin *MetricsPlugin) RegisterMethods() error {
-	method := NewMetricPlugin()
+	method := NewMetricPlugin(plugin)
 	rpcMethod := glightning.NewRpcMethod(method, "Show diagnostic node")
 	rpcMethod.LongDesc = "Show the diagnostic data of the lightning network node"
 	rpcMethod.Category = "metrics"

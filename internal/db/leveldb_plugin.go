@@ -93,7 +93,13 @@ func (instance *LevelDB) LoadLastMetricOne() (*string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Last metric it is not present in the db")
 	}
-	return lastUpdate, nil
+
+	lastSnapshot := strings.Join([]string{"metric_one", *lastUpdate}, "/")
+	metricJson, err := instance.GetValue(lastSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	return metricJson, nil
 }
 
 // Take the version of the data and apply the procedure
