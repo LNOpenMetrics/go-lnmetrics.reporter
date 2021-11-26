@@ -3,7 +3,7 @@ module github.com/LNOpenMetrics/go-lnmetrics.reporter
 go 1.17
 
 require (
-	github.com/LNOpenMetrics/lnmetrics.utils v0.0.0-20211109065240-8b2308c6c67a
+	github.com/LNOpenMetrics/lnmetrics.utils v0.0.0-20211111065808-b086ef397a1d
 	github.com/elastic/go-sysinfo v1.7.1
 	github.com/kinbiko/jsonassert v1.0.2
 	github.com/robfig/cron/v3 v3.0.1

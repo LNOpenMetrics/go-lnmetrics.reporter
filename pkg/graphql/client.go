@@ -143,10 +143,8 @@ func (instance *Client) InitMetric(nodeID string, body *string, signature string
 func (instance *Client) UploadMetric(nodeID string, body *string, signature string) error {
 	cleanBody := instance.cleanBody(body)
 	payload := fmt.Sprintf(`mutation {
-                                   updateMetricOne(node_id: "%s", payload: "%s", signature: "%s") {
-                                    node_id
-                                   }
-                                }`, nodeID, *cleanBody, signature)
+                                   updateMetricOne(node_id: "%s", payload: "%s", signature: "%s")
+                               }`, nodeID, *cleanBody, signature)
 	query := instance.MakeQuery(payload)
 	return instance.MakeRequest(query)
 }

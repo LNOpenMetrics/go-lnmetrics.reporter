@@ -10,6 +10,7 @@ import (
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 
+	"github.com/LNOpenMetrics/lnmetrics.utils/hash/sha256"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
@@ -440,7 +441,9 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 	if err != nil {
 		return nil
 	}
-	signPayload, err := lightning.SignMessage(payload)
+	toSign := sha256.SHA256(&payload)
+	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+	signPayload, err := lightning.SignMessage(toSign)
 	if err != nil {
 		return err
 	}
@@ -463,7 +466,10 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 	if err != nil {
 		return err
 	}
-	signPayload, err := lightning.SignMessage(payload)
+
+	toSign := sha256.SHA256(&payload)
+	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+	signPayload, err := lightning.SignMessage(toSign)
 	if err != nil {
 		return err
 	}
