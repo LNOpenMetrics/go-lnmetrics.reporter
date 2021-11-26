@@ -7,6 +7,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/vincenzopalazzo/glightning/glightning"
 
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
@@ -17,6 +18,7 @@ type MetricsPlugin struct {
 	Rpc     *glightning.Lightning
 	Cron    *cron.Cron
 	Server  *graphql.Client
+	Storage db.PluginDatabase
 }
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
@@ -49,7 +51,7 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 }
 
 func (plugin *MetricsPlugin) RegisterMethods() error {
-	method := NewMetricPlugin()
+	method := NewMetricPlugin(plugin)
 	rpcMethod := glightning.NewRpcMethod(method, "Show diagnostic node")
 	rpcMethod.LongDesc = "Show the diagnostic data of the lightning network node"
 	rpcMethod.Category = "metrics"
@@ -58,7 +60,7 @@ func (plugin *MetricsPlugin) RegisterMethods() error {
 	}
 
 	infoMethod := NewPluginRpcMethod()
-	infoRpcMethod := glightning.NewRpcMethod(infoMethod, "Show go-lnmetrics-reporter info")
+	infoRpcMethod := glightning.NewRpcMethod(infoMethod, "Show go-lnmetrics.reporter info")
 	infoRpcMethod.Category = "metrics"
 	infoRpcMethod.LongDesc = "Return a map where the key is the id of the method and the value is the payload of the metric. The metrics_id is a string that conatins the id divided by a comma. An example is \"diagnostic \"1,2,3\"\""
 	if err := plugin.Plugin.RegisterMethod(infoRpcMethod); err != nil {
@@ -95,7 +97,7 @@ func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 func (instance *MetricsPlugin) updateAndUploadMetric(metric Metric) {
 	log.GetInstance().Info("Calling update and upload metric")
 	instance.callUpdateOnMetricNoMsg(metric)
-	if err := metric.Upload(instance.Server); err != nil {
+	if err := metric.UploadOnRepo(instance.Server, instance.Rpc); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
 }
@@ -126,9 +128,22 @@ func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
 		// TODO: Should C-Lightning send a on init event like notification?
 		for _, metric := range instance.Metrics {
 			go func(instance *MetricsPlugin, metric Metric) {
-				if err := metric.OnInit(instance.Rpc); err != nil {
+				exist, err := metric.OnInit(instance.Rpc)
+				if err != nil {
 					log.GetInstance().Error(fmt.Sprintf("Error during on init call: %s", err))
 				}
+
+				if exist {
+					if err := metric.UploadOnRepo(instance.Server, instance.Rpc); err != nil {
+						log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+					}
+				} else {
+					// Init on server.
+					if err := metric.InitOnRepo(instance.Server, instance.Rpc); err != nil {
+						log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+					}
+				}
+
 			}(instance, metric)
 		}
 	})

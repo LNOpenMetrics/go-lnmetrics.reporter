@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	maker "github.com/LNOpenMetrics/go-lnmetrics.reporter/init/persistence"
+	pluginDB "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	metrics "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
-	"github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 
 	sysinfo "github.com/elastic/go-sysinfo"
@@ -32,13 +32,14 @@ func main() {
 	if err := plugin.RegisterHooks(hook); err != nil {
 		panic(err)
 	}
+
 	if err := metricsPlugin.RegisterMethods(); err != nil {
 		panic(err)
 	}
 
 	// To set the time the following doc is followed
 	// https://pkg.go.dev/github.com/robfig/cron?utm_source=godoc
-	metricsPlugin.RegisterRecurrentEvt("@every 30m")
+	metricsPlugin.RegisterRecurrentEvt("@every 1m")
 
 	metricsPlugin.Cron.Start()
 
@@ -63,10 +64,14 @@ func onInit(plugin *glightning.Plugin,
 		log.GetInstance().Error(err)
 		panic(err)
 	}
-	if err := db.GetInstance().InitDB(*metricsPath); err != nil {
+
+	dbPlugin, err := pluginDB.NewLevelDB(*metricsPath)
+	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		panic(err)
 	}
+	metricsPlugin.Storage = dbPlugin
+
 	err = parseOptionsPlugin(config, options)
 	if err != nil {
 		log.GetInstance().Error(err)
@@ -75,17 +80,21 @@ func onInit(plugin *glightning.Plugin,
 	//TODO: Load all the metrics in the datatabase that are registered from
 	// the user
 	metric, err := loadMetricIfExist(1)
+
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
 
+	if err := metricsPlugin.Storage.Migrate([]*string{metric.MetricName()}); err != nil {
+		panic(err)
+	}
 	if err := metricsPlugin.RegisterMetrics(1, metric); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
 
-	metricsPlugin.RegisterOneTimeEvt("10s")
+	metricsPlugin.RegisterOneTimeEvt("30m")
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
@@ -120,7 +129,6 @@ func parseOptionsPlugin(pluginConfig *glightning.Config, options map[string]glig
 	return nil
 }
 
-//FIXME: Improve quality of Go style here
 func loadMetricIfExist(id int) (metrics.Metric, error) {
 	metricName, found := metrics.MetricsSupported[id]
 	if !found {
@@ -128,7 +136,17 @@ func loadMetricIfExist(id int) (metrics.Metric, error) {
 		return nil, fmt.Errorf("Metric with id %d not supported", id)
 	}
 	log.GetInstance().Info(fmt.Sprintf("Loading metrics with id %d end name %s", id, metricName))
-	metricDb, err := db.GetInstance().GetValue(metricName)
+
+	switch id {
+	case 1:
+		return loadLastMetricOne()
+	default:
+		return nil, fmt.Errorf("Metric with is %d and name %s not supported", id, metricName)
+	}
+}
+
+func loadLastMetricOne() (*metrics.MetricOne, error) {
+	metricDb, err := metricsPlugin.Storage.LoadLastMetricOne()
 	if err != nil {
 		log.GetInstance().Info("No metrics available yet")
 		log.GetInstance().Debug(fmt.Sprintf("Error received %s", err))
@@ -137,26 +155,16 @@ func loadMetricIfExist(id int) (metrics.Metric, error) {
 			log.GetInstance().Error(fmt.Sprintf("Error during get the system information, error description %s", err))
 			return nil, err
 		}
-		switch id {
-		case 1:
-			one := metrics.NewMetricOne("", sys.Info())
-			return one, nil
-
-		default:
-			return nil, fmt.Errorf("Metric with id %d not supported", id)
-		}
+		one := metrics.NewMetricOne("", sys.Info(), metricsPlugin.Storage)
+		return one, nil
 	}
-	log.GetInstance().Info("Metrics available on DB, loading them.")
-	switch id {
-	case 1:
-		var metric metrics.MetricOne
-		err = json.Unmarshal([]byte(metricDb), &metric)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
-			return nil, err
-		}
-		return &metric, nil
-	default:
-		return nil, fmt.Errorf("Metric with id %d not supported", id)
+	log.GetInstance().Info("Metrics One available on DB, loading it.")
+	var metric metrics.MetricOne
+	err = json.Unmarshal([]byte(*metricDb), &metric)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
+		return nil, err
 	}
+	metric.Storage = metricsPlugin.Storage
+	return &metric, nil
 }

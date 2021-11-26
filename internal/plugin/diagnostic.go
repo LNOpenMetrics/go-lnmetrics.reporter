@@ -1,84 +1,49 @@
 package plugin
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/vincenzopalazzo/glightning/jrpc2"
-	"strconv"
-	"strings"
 
-	db "github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
-	"github.com/LNOpenMetrics/lnmetrics.utils/log"
+	"github.com/vincenzopalazzo/glightning/jrpc2"
 )
 
-type DiagnosticRpcMethod struct {
-	MetricId  int    `json:"metric_id"`
-	MetricsId string `json:"metrics_id"`
+type MetricOneRpcMethod struct {
+	StartPeriod string `json:"start"`
+	EndPeriod   string `json:"end"`
+
+	// Metric Reference
+	plugin *MetricsPlugin `json:"-"`
 }
 
-type diagnosticRpcModel struct {
-	Metrics map[string]interface{} `json:"metrics"`
+func (rpc *MetricOneRpcMethod) Name() string {
+	return "metric_one"
 }
 
-func (rpc *DiagnosticRpcMethod) Name() string {
-	return "diagnostic"
-}
-
-func NewMetricPlugin() *DiagnosticRpcMethod {
-	return &DiagnosticRpcMethod{MetricId: -1, MetricsId: ""}
-}
-
-func (rpc *DiagnosticRpcMethod) New() interface{} {
-	return NewMetricPlugin()
-}
-
-func (instance *DiagnosticRpcMethod) Call() (jrpc2.Result, error) {
-	metricsRequired, err := instance.parsingMetrics()
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
-		return nil, err
+func NewMetricPlugin(plugin *MetricsPlugin) *MetricOneRpcMethod {
+	return &MetricOneRpcMethod{
+		StartPeriod: "",
+		EndPeriod:   "",
+		plugin:      plugin,
 	}
-	if len(metricsRequired) == 0 && instance.MetricId > 0 {
-		metricsRequired = append(metricsRequired, instance.MetricId)
-	}
-	model := diagnosticRpcModel{Metrics: make(map[string]interface{})}
-	for _, metricId := range metricsRequired {
-		key, found := MetricsSupported[metricId]
-		if !found {
-			return nil, fmt.Errorf("ID metrics %d unknown", metricId)
-		}
-		result, err := db.GetInstance().GetValue(key)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("DB error for the key %s", key))
-			log.GetInstance().Error(fmt.Sprintf("Error is: %s", err))
-			return nil, fmt.Errorf("DB error for the metric %s with following motivation %s", key, err)
-		}
-
-		var metric interface{}
-		err = json.Unmarshal([]byte(result), &metric)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			return nil, err
-		}
-		model.Metrics[key] = metric
-	}
-	return model, nil
 }
 
-func (instance *DiagnosticRpcMethod) parsingMetrics() ([]int, error) {
-	metrics := make([]int, 0)
-	tokens := strings.Split(instance.MetricsId, ",")
-	for _, value := range tokens {
-		trimVal := strings.Trim(value, " ")
-		if trimVal == "" {
-			continue
-		}
-		val, err := strconv.Atoi(trimVal)
-		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error %s", err))
-			return nil, err
-		}
-		metrics = append(metrics, val)
+func (instance *MetricOneRpcMethod) New() interface{} {
+	return NewMetricPlugin(instance.plugin)
+}
+
+func (instance *MetricOneRpcMethod) Call() (jrpc2.Result, error) {
+	metricOne, found := instance.plugin.Metrics[1]
+
+	if !found {
+		return nil, fmt.Errorf("Metric with id %d not found", 1)
 	}
-	return metrics, nil
+
+	if instance.StartPeriod == "" &&
+		instance.EndPeriod == "" {
+		return nil, fmt.Errorf("Missing at list the start parameter in the rpc method")
+	}
+
+	if instance.StartPeriod == "now" {
+		return metricOne, nil
+	}
+	return nil, fmt.Errorf("We don't support the filter operation right now")
 }

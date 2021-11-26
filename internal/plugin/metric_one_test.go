@@ -5,17 +5,20 @@ import (
 	"os"
 	"testing"
 
-	"github.com/LNOpenMetrics/lnmetrics.utils/db/leveldb"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/kinbiko/jsonassert"
 	//	"github.com/stretchr/testify/assert"
 )
 
+var globalDb db.PluginDatabase
+
 func init() {
 	// TODO: The database is null in the test method, why?
 	rootDir, _ := os.Executable()
-	_ = db.GetInstance().InitDB(rootDir)
+	db, _ := db.NewLevelDB(rootDir)
+	globalDb = db
 }
 
 func TestJSONSerializzation(t *testing.T) {
@@ -23,7 +26,7 @@ func TestJSONSerializzation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test Failure caused by: %s", err)
 	}
-	metric := NewMetricOne("1234", sys.Info())
+	metric := NewMetricOne("1234", sys.Info(), globalDb)
 	jsonString, _ := json.Marshal(metric)
 
 	jsonTest := jsonassert.New(t)
@@ -43,6 +46,7 @@ func TestJSONSerializzation(t *testing.T) {
        "implementation": "<<PRESENCE>>",
        "version": "<<PRESENCE>>"
    },
+   "address": [],
    "timezone": "<<PRESENCE>>",
    "up_time": [],
    "version": "<<PRESENCE>>"
