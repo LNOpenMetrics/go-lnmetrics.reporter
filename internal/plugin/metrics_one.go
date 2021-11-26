@@ -368,6 +368,8 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 	}
 	instance.UpTime = append(instance.UpTime, status)
 	instance.lastCheck = int(status.Timestamp)
+	//TODO: these are duplicated
+	instance.Address = make([]*NodeAddress, 0)
 	for _, address := range getInfo.Addresses {
 		nodeAddress := &NodeAddress{
 			Type: address.Type,
@@ -378,7 +380,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 	}
 
 	//TODO: Check if the node it is already init on the server
-
+	// if no init it, if yes just update with the last info
 	return false, instance.MakePersistent()
 }
 
@@ -403,7 +405,6 @@ func (instance *MetricOne) MakePersistent() error {
 		log.GetInstance().Error(fmt.Sprintf("JSON error %s", err))
 		return err
 	}
-	//TODO put the timestamp as argument
 	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &json)
 }
 
@@ -466,7 +467,6 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 	if err != nil {
 		return err
 	}
-
 	toSign := sha256.SHA256(&payload)
 	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
 	signPayload, err := lightning.SignMessage(toSign)
