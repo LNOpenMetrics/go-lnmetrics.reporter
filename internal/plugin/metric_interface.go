@@ -20,11 +20,10 @@ type Metric interface {
 	// return the name of the metric
 	MetricName() *string
 
-	// call this to initialized the plugin
-	// return true if the node metric it is already on server.
-	// false otherwise, in this case the plugin must initialize
-	// the metrics on server.
-	OnInit(lightning *glightning.Lightning) (bool, error)
+	// call this to initialized the metric with node
+	// information if any error occurs, a not nil value is
+	// returned
+	OnInit(lightning *glightning.Lightning) error
 
 	// Call this method when the close rpc method is called
 	OnClose(msg *Msg, lightning *glightning.Lightning) error

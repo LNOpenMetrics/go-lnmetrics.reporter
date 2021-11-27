@@ -102,6 +102,35 @@ func (instance *LevelDB) LoadLastMetricOne() (*string, error) {
 	return metricJson, nil
 }
 
+func (instance *LevelDB) GetOldData(key string, erase bool) (*string, bool) {
+	// Get the key of the prev version
+	dictKey := strings.Join([]string{key, fmt.Sprint(instance.dbVersion - 1)}, "/")
+	log.GetInstance().Info(fmt.Sprintf("Old data key: %s", dictKey))
+	metricKey, found := instance.metricsDbKeys[dictKey]
+
+	if !found {
+		log.GetInstance().Info(fmt.Sprintf("No old key found in the mapping: key=%s/{db version -1}", key))
+		return nil, false
+	}
+
+	// the full payload it is store in the single
+	// instance
+	metricJson, err := db.GetInstance().GetValue(metricKey)
+	if err != nil {
+		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		return nil, false
+	}
+
+	if erase {
+		if err := db.GetInstance().DeleteValue(metricKey); err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+			return nil, false
+		}
+	}
+
+	return &metricJson, true
+}
+
 // Take the version of the data and apply the procedure
 // to migrate the database.
 func (instance *LevelDB) Migrate(metrics []*string) error {

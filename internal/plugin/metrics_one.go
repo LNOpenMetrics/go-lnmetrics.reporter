@@ -345,11 +345,11 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 }
 
 // One time callback called from the lightning implementation
-func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error) {
+func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	getInfo, err := lightning.GetInfo()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
-		return false, err
+		return err
 	}
 
 	instance.NodeID = getInfo.Id
@@ -362,7 +362,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 	}
 	status, err := instance.onEvent("on_start", lightning)
 	if err != nil {
-		return false, err
+		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
 	instance.lastCheck = int(time.Now().Unix())
@@ -380,10 +380,8 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 		}
 		instance.Address = append(instance.Address, nodeAddress)
 	}
-
-	//TODO: Check if the node it is already init on the server
-	// if no init it, if yes just update with the last info
-	return false, instance.MakePersistent()
+	log.GetInstance().Info("Plugin initialized with OnInit event")
+	return instance.MakePersistent()
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
@@ -452,27 +450,44 @@ func (instance *MetricOne) ToJSON() (string, error) {
 
 // Contact the server and make an init the node.
 func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
-	payload, err := instance.ToJSON()
+
+	err := client.GetMetricOneByNodeID(instance.NodeID, -1, -1)
 	if err != nil {
+		// If we received an error from the find method, maybe
+		// the node it is not initialized on the server, and we
+		// can try to init it.
+
+		payload, err := instance.ToJSON()
+		if err != nil {
+			return err
+		}
+		// A restart of the plugin it is also caused from an update of it
+		// and, so we supported only the migration of the previous version
+		// for the moment.
+		oldData, found := instance.Storage.GetOldData("metric_one", false)
+		if found {
+			log.GetInstance().Info("Found old data from db migration")
+			payload = *oldData
+		}
+
+		toSign := sha256.SHA256(&payload)
+		log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+		signPayload, err := lightning.SignMessage(toSign)
+		if err != nil {
+			return err
+		}
+
+		if err := client.InitMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
+			return err
+		}
+
+		now := time.Now()
+		log.GetInstance().Info(fmt.Sprintf("Metric One:Initialized on server at %s", now.Format(time.RFC850)))
 		return nil
+	} else {
+		log.GetInstance().Info("Metric One: No initialization need, we simple tell to the server that we are back!")
+		return instance.UploadOnRepo(client, lightning)
 	}
-	toSign := sha256.SHA256(&payload)
-	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
-	signPayload, err := lightning.SignMessage(toSign)
-	if err != nil {
-		return err
-	}
-
-	if err := client.InitMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
-		return err
-	}
-
-	instance.UpTime = make([]*status, 0)
-	instance.ChannelsInfo = make(map[string]*statusChannel)
-
-	t := time.Now()
-	log.GetInstance().Info(fmt.Sprintf("Metric One Initialized on server at %s", t.Format(time.RFC850)))
-	return nil
 }
 
 // Contact the server and make an update request
