@@ -47,6 +47,7 @@ func NewLevelDB(path string) (PluginDatabase, error) {
 		return nil, err
 	}
 
+	log.GetInstance().Info(fmt.Sprintf("DB data version: %d", dataVersionConv))
 	return &LevelDB{
 		dbVersion: dataVersionConv,
 		dbKeyDb:   dbKey,
@@ -113,9 +114,11 @@ func (instance *LevelDB) GetOldData(key string, erase bool) (*string, bool) {
 		return nil, false
 	}
 
+	oldKey := strings.Join([]string{metricKey, "old"}, "/")
+	log.GetInstance().Info(fmt.Sprintf("Retrieval old metric with key: %s", oldKey))
 	// the full payload it is store in the single
 	// instance
-	metricJson, err := db.GetInstance().GetValue(metricKey)
+	metricJson, err := db.GetInstance().GetValue(oldKey)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return nil, false
@@ -178,6 +181,7 @@ func (instance *LevelDB) migrateMetricOneToVersionTwo() error {
 	oldMetricKey := metricKey
 	metricKey = instance.metricsDbKeys[dictKey]
 	oldKey := strings.Join([]string{metricKey, "old"}, "/")
+	log.GetInstance().Debug(fmt.Sprintf("Storing old metric with key: %s", oldKey))
 	if err := db.GetInstance().PutValue(oldKey, metricJson); err != nil {
 		return err
 	}
