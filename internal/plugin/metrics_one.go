@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
@@ -37,6 +39,10 @@ type ChannelInfo struct {
 	Color     string
 	Direction string
 	Forwards  []*PaymentInfo
+	// information about the channels fee
+	Fee *ChannelFee `json:"fee"`
+	// HTLC limit of the node where we have a channel with
+	Limits *ChannelLimits `json:"limits"`
 }
 
 type ChannelSummary struct {
@@ -70,8 +76,26 @@ type channelStatus struct {
 	Status string `json:"status"`
 }
 
+// Container of the htlc limit information
+// of the node where we have a channel with.
+//
+// It is used in the statusChannel struct
+type ChannelLimits struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
+}
+
+// Container of the fee information related
+// to the channel, used in statusChannel struct
+type ChannelFee struct {
+	Base    int `json:"base"`
+	PerMSat int `json:"per_msat"`
+}
+
 // Wrap all the information about the node that the own node
 // has some channel open.
+//
+// Used in the MetricOne struct
 type statusChannel struct {
 	// short channel id
 	ChannelId string `json:"channel_id"`
@@ -93,6 +117,10 @@ type statusChannel struct {
 	LastUpdate uint `json:"last_update"`
 	// information about the direction of the channel: out, in, mutual.
 	Direction string `json:"direction"`
+	// information about the channels fee
+	Fee *ChannelFee `json:"fee"`
+	// HTLC limit of the node where we have a channel with
+	Limits *ChannelLimits `json:"limits"`
 }
 
 type osInfo struct {
@@ -252,7 +280,9 @@ func init() {
 
 // This method is required by the
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *MetricOne {
-	return &MetricOne{id: 1, Version: 1,
+	return &MetricOne{
+		id:        1,
+		Version:   3,
 		Name:      MetricsSupported[1],
 		NodeID:    nodeId,
 		NodeAlias: "unknown",
@@ -264,10 +294,12 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 			Implementation: "unknown",
 			Version:        "unknown",
 		},
-		Address:  make([]*NodeAddress, 0),
-		Timezone: sysInfo.Timezone, UpTime: make([]*status, 0),
-		ChannelsInfo: make(map[string]*statusChannel), Color: "",
-		Storage: storage,
+		Address:      make([]*NodeAddress, 0),
+		Timezone:     sysInfo.Timezone,
+		UpTime:       make([]*status, 0),
+		ChannelsInfo: make(map[string]*statusChannel),
+		Color:        "",
+		Storage:      storage,
 	}
 }
 
@@ -299,7 +331,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			payload["version"] = 1
 		}
 	}
-	payload["version"] = 2
+	payload["version"] = 3
 	return nil
 }
 
@@ -637,6 +669,8 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 			Forwards:  info.Forwards,
 			UpTimes:   upTimes,
 			Online:    channel.Connected,
+			Fee:       info.Fee,
+			Limits:    info.Limits,
 		}
 		instance.ChannelsInfo[shortChannelId] = &newInfoChannel
 	} else {
@@ -644,6 +678,8 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 		infoChannel.UpTimes = append(infoChannel.UpTimes, &channelStat)
 		infoChannel.Color = info.Color
 		infoChannel.Online = channel.Connected
+		infoChannel.Fee = info.Fee
+		infoChannel.Limits = info.Limits
 	}
 	return nil
 }
@@ -667,6 +703,14 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		Color:     "unknown",
 		Direction: "unknown",
 		Forwards:  make([]*PaymentInfo, 0),
+		Fee: &ChannelFee{
+			Base:    0,
+			PerMSat: 0,
+		},
+		Limits: &ChannelLimits{
+			Min: 0,
+			Max: 0,
+		},
 	}
 
 	if err != nil {
@@ -718,6 +762,33 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			return nil, fmt.Errorf("Status %s unexpected", forward.Status)
 		}
 	}
+
+	channelListRPC, err := lightning.GetChannel(channel.ShortChannelId)
+	if err != nil {
+		return nil, err
+	}
+
+	channelRPC := channelListRPC[0]
+
+	channelInfo.Fee.Base = int(channelRPC.BaseFeeMillisatoshi)
+	channelInfo.Fee.PerMSat = int(channelRPC.FeePerMillionth)
+	channelInfo.Limits.Min, _ = getMSatValue(channelRPC.HtlcMinimumMilliSatoshis)
+	channelInfo.Limits.Max, _ = getMSatValue(channelRPC.HtlcMaximumMilliSatoshis)
+
 	//TODO Adding support for the dual founding channels.
 	return &channelInfo, nil
+}
+
+//FIXME put inside the utils functions
+func getMSatValue(msatStr string) (int, error) {
+	msatTokens := strings.Split(msatStr, "msat")
+	if len(msatTokens) == 0 {
+		return -1, nil
+	}
+	msatValue := msatTokens[0]
+	value, err := strconv.ParseInt(msatValue, 10, 32)
+	if err != nil {
+		log.GetInstance().Error(fmt.Errorf("Error parsing msat: %s", err))
+	}
+	return int(value), err
 }
