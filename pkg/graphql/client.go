@@ -15,6 +15,18 @@ import (
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
+// Partial Wrapper around graphql error response
+// FIXME: adding support for the path filed
+type GraphQLError struct {
+	Message string `json:"message"`
+}
+
+// GraphQL Response wrapper
+type GraphQLResponse struct {
+	Data   *map[string]interface{} `json:"data"`
+	Errors []*GraphQLError         `json:"errors"`
+}
+
 type Client struct {
 	// The graph ql can contains a list of server where
 	// make the request.
@@ -69,14 +81,15 @@ func isOnionUrl(url string) bool {
 }
 
 // Make Request is the method to make the http request
-func (instance *Client) MakeRequest(query map[string]string) error {
+func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse, error) {
 	jsonValue, err := json.Marshal(query)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-		return err
+		return nil, err
 	}
 
 	failure := 0
+	responses := make([]*GraphQLResponse, 0)
 	for _, url := range instance.BaseUrl {
 		log.GetInstance().Info(fmt.Sprintf("Request to URL %s", url))
 		if !instance.WithProxy && isOnionUrl(url) {
@@ -107,14 +120,21 @@ func (instance *Client) MakeRequest(query map[string]string) error {
 			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
 			continue
 		}
+		var respModel GraphQLResponse
+		if err := json.Unmarshal([]byte(result), &respModel); err != nil {
+			failure++
+			log.GetInstance().Error(fmt.Sprintf("Error during graphql response: %s", err))
+			continue
+		}
+		responses = append(responses, &respModel)
 		log.GetInstance().Debug(fmt.Sprintf("Result from server %s", result))
 	}
 
 	if failure == len(instance.BaseUrl) {
-		return fmt.Errorf("All the request to push the data into request are failed. %d Failure over %d request", failure, len(instance.BaseUrl))
+		return nil, fmt.Errorf("All the request to push the data into request are failed. %d Failure over %d request", failure, len(instance.BaseUrl))
 	}
 
-	return nil
+	return responses, nil
 }
 
 // Private function to clean the payload to migrate strings with " to \"
@@ -123,7 +143,7 @@ func (instance *Client) cleanBody(payload *string) *string {
 	return &replace
 }
 
-// TODO: adding parameters
+// TODO: adding variables to give more flexibility
 func (instance *Client) MakeQuery(payload string) map[string]string {
 	return map[string]string{"query": payload}
 }
@@ -131,12 +151,13 @@ func (instance *Client) MakeQuery(payload string) map[string]string {
 func (instance *Client) InitMetric(nodeID string, body *string, signature string) error {
 	body = instance.cleanBody(body)
 	payload := fmt.Sprintf(`mutation {
-                                  initMetricOne(node_id: "%s, payload: "%s", signature: "%s") {
+                                  initMetricOne(node_id: "%s", payload: "%s", signature: "%s") {
                                     node_id
                                   }
                                }`, nodeID, *body, signature)
 	query := instance.MakeQuery(payload)
-	return instance.MakeRequest(query)
+	_, err := instance.MakeRequest(query)
+	return err
 }
 
 // Utils Function to update the with the last data the metrics on server..
@@ -146,5 +167,27 @@ func (instance *Client) UploadMetric(nodeID string, body *string, signature stri
                                    updateMetricOne(node_id: "%s", payload: "%s", signature: "%s")
                                }`, nodeID, *cleanBody, signature)
 	query := instance.MakeQuery(payload)
-	return instance.MakeRequest(query)
+	_, err := instance.MakeRequest(query)
+	return err
+}
+
+// Utils function that call the GraphQL server to get the metrics about the channel
+func (instance *Client) GetMetricOneByNodeID(nodeID string, startPeriod int, endPeriod int) error {
+	payload := fmt.Sprintf(`query {
+                                  getMetricOne(node_id: "%s", start_period: %d, end_period: %d) {
+                                     node_id
+                                     metric_name
+                                  }
+                              }`, nodeID, startPeriod, endPeriod)
+	query := instance.MakeQuery(payload)
+	responses, err := instance.MakeRequest(query)
+	for _, resp := range responses {
+		if len(resp.Errors) != 0 {
+			// Get only the first error.
+			// FIXME: It is enough only the first one?
+			errorQL := resp.Errors[0]
+			return fmt.Errorf(errorQL.Message)
+		}
+	}
+	return err
 }

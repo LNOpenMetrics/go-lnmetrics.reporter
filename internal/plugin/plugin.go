@@ -128,20 +128,14 @@ func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
 		// TODO: Should C-Lightning send a on init event like notification?
 		for _, metric := range instance.Metrics {
 			go func(instance *MetricsPlugin, metric Metric) {
-				exist, err := metric.OnInit(instance.Rpc)
+				err := metric.OnInit(instance.Rpc)
 				if err != nil {
 					log.GetInstance().Error(fmt.Sprintf("Error during on init call: %s", err))
 				}
 
-				if exist {
-					if err := metric.UploadOnRepo(instance.Server, instance.Rpc); err != nil {
-						log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-					}
-				} else {
-					// Init on server.
-					if err := metric.InitOnRepo(instance.Server, instance.Rpc); err != nil {
-						log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-					}
+				// Init on server.
+				if err := metric.InitOnRepo(instance.Server, instance.Rpc); err != nil {
+					log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				}
 
 			}(instance, metric)

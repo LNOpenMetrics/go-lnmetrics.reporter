@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/vincenzopalazzo/glightning/jrpc2"
@@ -45,5 +46,17 @@ func (instance *MetricOneRpcMethod) Call() (jrpc2.Result, error) {
 	if instance.StartPeriod == "now" {
 		return metricOne, nil
 	}
+
+	if instance.StartPeriod == "last" {
+		jsonValue, err := instance.plugin.Storage.LoadLastMetricOne()
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(*jsonValue), &metricOne); err != nil {
+			return nil, err
+		}
+		return metricOne, nil
+	}
+
 	return nil, fmt.Errorf("We don't support the filter operation right now")
 }

@@ -91,8 +91,6 @@ type statusChannel struct {
 	Online bool `json:"online"`
 	// last message (channel_update) received from the gossip
 	LastUpdate uint `json:"last_update"`
-	// the channel is public?
-	Public bool `json:"public"`
 	// information about the direction of the channel: out, in, mutual.
 	Direction string `json:"direction"`
 }
@@ -347,11 +345,11 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 }
 
 // One time callback called from the lightning implementation
-func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error) {
+func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	getInfo, err := lightning.GetInfo()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
-		return false, err
+		return err
 	}
 
 	instance.NodeID = getInfo.Id
@@ -364,11 +362,15 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 	}
 	status, err := instance.onEvent("on_start", lightning)
 	if err != nil {
-		return false, err
+		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-	instance.lastCheck = int(status.Timestamp)
-	//TODO: these are duplicated
+	instance.lastCheck = int(time.Now().Unix())
+	if status.Timestamp > 0 {
+		instance.lastCheck = int(status.Timestamp)
+	}
+
+	//FIXME: We could use a set datastructure
 	instance.Address = make([]*NodeAddress, 0)
 	for _, address := range getInfo.Addresses {
 		nodeAddress := &NodeAddress{
@@ -378,10 +380,8 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) (bool, error)
 		}
 		instance.Address = append(instance.Address, nodeAddress)
 	}
-
-	//TODO: Check if the node it is already init on the server
-	// if no init it, if yes just update with the last info
-	return false, instance.MakePersistent()
+	log.GetInstance().Info("Plugin initialized with OnInit event")
+	return instance.MakePersistent()
 }
 
 func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
@@ -390,7 +390,10 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-	instance.lastCheck = int(status.Timestamp)
+	instance.lastCheck = int(time.Now().Unix())
+	if status.Timestamp > 0 {
+		instance.lastCheck = int(status.Timestamp)
+	}
 	return instance.MakePersistent()
 }
 
@@ -412,17 +415,26 @@ func (instance *MetricOne) MakePersistent() error {
 // or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	lastValue := &ChannelsSummary{TotChannels: 0, Summary: make([]*ChannelSummary, 0)}
-	forwards := &PaymentsSummary{0, 0}
+	lastValue := &ChannelsSummary{
+		TotChannels: 0,
+		Summary:     make([]*ChannelSummary, 0),
+	}
+	forwards := &PaymentsSummary{
+		Completed: 0,
+		Failed:    0,
+	}
 	if len(instance.UpTime) > 0 {
 		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
 		forwards = instance.UpTime[len(instance.UpTime)-1].Forwards
 	}
 	now := time.Now().Unix()
-	instance.UpTime = append(instance.UpTime,
-		&status{Event: "on_close",
-			Timestamp: now,
-			Channels:  lastValue, Forwards: forwards})
+	statusItem := &status{
+		Event:     "on_close",
+		Timestamp: now,
+		Channels:  lastValue,
+		Forwards:  forwards,
+	}
+	instance.UpTime = append(instance.UpTime, statusItem)
 	instance.lastCheck = int(now)
 	return instance.MakePersistent()
 }
@@ -438,27 +450,44 @@ func (instance *MetricOne) ToJSON() (string, error) {
 
 // Contact the server and make an init the node.
 func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
-	payload, err := instance.ToJSON()
+
+	err := client.GetMetricOneByNodeID(instance.NodeID, -1, -1)
 	if err != nil {
+		// If we received an error from the find method, maybe
+		// the node it is not initialized on the server, and we
+		// can try to init it.
+
+		payload, err := instance.ToJSON()
+		if err != nil {
+			return err
+		}
+		// A restart of the plugin it is also caused from an update of it
+		// and, so we supported only the migration of the previous version
+		// for the moment.
+		oldData, found := instance.Storage.GetOldData("metric_one", false)
+		if found {
+			log.GetInstance().Info("Found old data from db migration")
+			payload = *oldData
+		}
+
+		toSign := sha256.SHA256(&payload)
+		log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+		signPayload, err := lightning.SignMessage(toSign)
+		if err != nil {
+			return err
+		}
+
+		if err := client.InitMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
+			return err
+		}
+
+		now := time.Now()
+		log.GetInstance().Info(fmt.Sprintf("Metric One:Initialized on server at %s", now.Format(time.RFC850)))
 		return nil
+	} else {
+		log.GetInstance().Info("Metric One: No initialization need, we simple tell to the server that we are back!")
+		return instance.UploadOnRepo(client, lightning)
 	}
-	toSign := sha256.SHA256(&payload)
-	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
-	signPayload, err := lightning.SignMessage(toSign)
-	if err != nil {
-		return err
-	}
-
-	if err := client.InitMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
-		return err
-	}
-
-	instance.UpTime = make([]*status, 0)
-	instance.ChannelsInfo = make(map[string]*statusChannel)
-
-	t := time.Now()
-	log.GetInstance().Info(fmt.Sprintf("Metric One Initialized on server at %s", t.Format(time.RFC850)))
-	return nil
 }
 
 // Contact the server and make an update request
@@ -477,6 +506,10 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 		log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
 		return err
 	}
+
+	instance.UpTime = make([]*status, 0)
+	instance.ChannelsInfo = make(map[string]*statusChannel)
+
 	// Refactored this method in a utils functions
 	t := time.Now()
 	log.GetInstance().Info(fmt.Sprintf("Metric One Upload at %s", t.Format(time.RFC850)))
@@ -485,7 +518,10 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 
 // Make a summary of all the channels information that the node have a channels with.
 func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
-	channelsSummary := &ChannelsSummary{TotChannels: 0, Summary: make([]*ChannelSummary, 0)}
+	channelsSummary := &ChannelsSummary{
+		TotChannels: 0,
+		Summary:     make([]*ChannelSummary, 0),
+	}
 
 	if len(channels) > 0 {
 		summary := make([]*ChannelSummary, 0)
@@ -498,7 +534,11 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 				continue
 			}
 
-			channelSummary := &ChannelSummary{NodeId: channel.Id, ChannelId: channel.ShortChannelId, State: channel.State}
+			channelSummary := &ChannelSummary{
+				NodeId:    channel.Id,
+				ChannelId: channel.ShortChannelId,
+				State:     channel.State,
+			}
 			// FIXME: With too many channels this can require to many node request!
 			// this can avoid to get all node node known, but this also can have a very big response.
 			node, err := lightning.GetNode(channel.Id)
@@ -519,7 +559,10 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 }
 
 func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, forwards []glightning.Forwarding) (*PaymentsSummary, error) {
-	statusPayments := PaymentsSummary{Completed: 0, Failed: 0}
+	statusPayments := PaymentsSummary{
+		Completed: 0,
+		Failed:    0,
+	}
 
 	for _, forward := range forwards {
 		switch forward.Status {
@@ -585,9 +628,16 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 		upTimes := make([]*channelStatus, 1)
 		upTimes[0] = &channelStat
 		// TODO: Could be good to have a information about the direction of the channel
-		newInfoChannel := statusChannel{ChannelId: shortChannelId, NodeId: info.NodeId, NodeAlias: info.Alias, Color: info.Color,
-			Capacity: channel.ChannelSatoshi, Forwards: info.Forwards,
-			UpTimes: upTimes, Online: channel.Connected}
+		newInfoChannel := statusChannel{
+			ChannelId: shortChannelId,
+			NodeId:    info.NodeId,
+			NodeAlias: info.Alias,
+			Color:     info.Color,
+			Capacity:  channel.ChannelSatoshi,
+			Forwards:  info.Forwards,
+			UpTimes:   upTimes,
+			Online:    channel.Connected,
+		}
 		instance.ChannelsInfo[shortChannelId] = &newInfoChannel
 	} else {
 		infoChannel.Capacity = channel.ChannelSatoshi
@@ -611,9 +661,13 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 
 	nodeInfo, err := lightning.GetNode(channel.Id)
 	// Init the default data here
-	channelInfo := ChannelInfo{NodeId: channel.Id, Alias: "unknown",
-		Color: "unknown", Direction: "unknown",
-		Forwards: make([]*PaymentInfo, 0)}
+	channelInfo := ChannelInfo{
+		NodeId:    channel.Id,
+		Alias:     "unknown",
+		Color:     "unknown",
+		Direction: "unknown",
+		Forwards:  make([]*PaymentInfo, 0),
+	}
 
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the call listNodes: %s", err))
@@ -638,12 +692,16 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	}
 
 	for _, forward := range listForwards {
-		if channel.ShortChannelId == forward.InChannel {
-			channelInfo.Forwards = append(channelInfo.Forwards, &PaymentInfo{Direction: ChannelDirections[1], Status: forward.Status})
-		} else if channel.ShortChannelId == forward.OutChannel {
-			channelInfo.Forwards = append(channelInfo.Forwards, &PaymentInfo{Direction: ChannelDirections[0], Status: forward.Status})
+		paymentInfo := &PaymentInfo{
+			Direction: ChannelDirections[1],
+			Status:    forward.Status,
 		}
-
+		if channel.ShortChannelId == forward.InChannel {
+			paymentInfo.Direction = ChannelDirections[1]
+		} else if channel.ShortChannelId == forward.OutChannel {
+			paymentInfo.Direction = ChannelDirections[0]
+		}
+		channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
 		switch forward.Status {
 		case "settled", "failed":
 			// do nothings

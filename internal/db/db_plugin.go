@@ -33,6 +33,16 @@ type PluginDatabase interface {
 	// This will hide the logic under the database.
 	StoreMetricOneSnapshot(timestamp int, payload *string) error
 
+	// get the information that are stored in the with old key, this
+	// help to very hard migration of the database where the more easy
+	// thinks to do is to store the information inside a "old" key and
+	// start to from a clean key the new format of the metrics.
+	//
+	// @key: is the old key where the implementation is stored
+	// @erase: it is a flag that tell to the db to erase the information
+	// forever after the query.
+	GetOldData(key string, erase bool) (*string, bool)
+
 	// Store Metrics it is a generic method
 	// that take a Metrics interface and store it
 	// in th database.

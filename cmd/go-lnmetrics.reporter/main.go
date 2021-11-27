@@ -94,7 +94,7 @@ func onInit(plugin *glightning.Plugin,
 		panic(err)
 	}
 
-	metricsPlugin.RegisterOneTimeEvt("30m")
+	metricsPlugin.RegisterOneTimeEvt("10s")
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
