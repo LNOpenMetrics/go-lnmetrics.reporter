@@ -104,6 +104,7 @@ func (instance *MetricsPlugin) updateAndUploadMetric(metric Metric) {
 
 // Register internal recurrent methods
 func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
+	log.GetInstance().Info(fmt.Sprintf("Register recurrent event each %s", after))
 	instance.Cron = cron.New()
 	// FIXME: Discover what is the first value
 	_, err := instance.Cron.AddFunc(after, func() {
@@ -118,6 +119,7 @@ func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
 }
 
 func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
+	log.GetInstance().Info(fmt.Sprintf("Register one time event after %s", after))
 	duration, err := time.ParseDuration(after)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error in the on time evt: %s", err))
