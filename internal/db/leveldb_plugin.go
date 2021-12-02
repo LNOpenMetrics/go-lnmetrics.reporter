@@ -172,7 +172,8 @@ func (instance *LevelDB) migrateMetricOneToVersionTwo() error {
 	// instance
 	metricJson, err := db.GetInstance().GetValue(metricKey)
 	if err != nil {
-		return err
+		log.GetInstance().Info("No migration performed, because there is no data to migrate")
+		return nil
 	}
 
 	instance.dbVersion = 2
