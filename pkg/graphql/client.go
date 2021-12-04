@@ -109,6 +109,13 @@ func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse
 			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
 			continue
 		}
+
+		if response.StatusCode != http.StatusOK {
+			failure++
+			log.GetInstance().Errorf("Non-OK HTTP status: %d", response.StatusCode)
+			continue
+		}
+
 		defer func() {
 			if err := response.Body.Close(); err != nil {
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
@@ -123,6 +130,7 @@ func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse
 		var respModel GraphQLResponse
 		if err := json.Unmarshal([]byte(result), &respModel); err != nil {
 			failure++
+			log.GetInstance().Infof("Raw server response: %s", result)
 			log.GetInstance().Error(fmt.Sprintf("Error during graphql response: %s", err))
 			continue
 		}

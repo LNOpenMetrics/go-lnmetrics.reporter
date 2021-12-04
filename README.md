@@ -56,6 +56,10 @@ lnmetrics-urls=https://api.lnmetrics.info/query
 Where the `lnmetrics-urls` give the possibility to specify the server where the plugin need to report the data if any. You can specify more that one server with just
 append another url divided by a comma.
 
+In addition, there are the following optional parameters:
+
+- lnmetrics-noproxy: Force the disabling of the proxy
+
 ## How to Use
 
 After running the plugin you will have the possibility to run the following rpc command from lightning-cli, and them are described below:

@@ -484,7 +484,7 @@ func (instance *MetricOne) ToJSON() (string, error) {
 
 // Contact the server and make an init the node.
 func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
-
+	log.GetInstance().Info("Init plugin on repository")
 	err := client.GetMetricOneByNodeID(instance.NodeID, -1, -1)
 	if err != nil {
 		// If we received an error from the find method, maybe
@@ -498,7 +498,7 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 		// A restart of the plugin it is also caused from an update of it
 		// and, so we supported only the migration of the previous version
 		// for the moment.
-		oldData, found := instance.Storage.GetOldData("metric_one", false)
+		oldData, found := instance.Storage.GetOldData("metric_one", true)
 		if found {
 			log.GetInstance().Info("Found old data from db migration")
 			payload = *oldData

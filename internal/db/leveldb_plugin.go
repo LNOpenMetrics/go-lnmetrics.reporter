@@ -136,7 +136,8 @@ func (instance *LevelDB) GetOldData(key string, erase bool) (*string, bool) {
 	}
 
 	if erase {
-		if err := db.GetInstance().DeleteValue(metricKey); err != nil {
+		log.GetInstance().Infof("Erase old data on db with key: %s", oldKey)
+		if err := db.GetInstance().DeleteValue(oldKey); err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 			return nil, false
 		}
