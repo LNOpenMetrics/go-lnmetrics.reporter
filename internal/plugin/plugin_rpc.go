@@ -20,6 +20,7 @@ type info struct {
 	MaxProcs     int
 	StoragePath  string
 	Metrics      []string
+	ProxyEnabled bool
 }
 
 func (instance PluginRpcMethod) Name() string {
@@ -50,5 +51,6 @@ func (instance *PluginRpcMethod) Call() (jrpc2.Result, error) {
 		MaxProcs:     goInfo.MaxProcs,
 		StoragePath:  instance.metricsPlugin.Storage.GetDBPath(),
 		Metrics:      metricsSupp,
+		ProxyEnabled: instance.metricsPlugin.WithProxy,
 	}, nil
 }

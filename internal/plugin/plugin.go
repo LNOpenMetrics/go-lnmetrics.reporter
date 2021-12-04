@@ -13,12 +13,13 @@ import (
 )
 
 type MetricsPlugin struct {
-	Plugin  *glightning.Plugin
-	Metrics map[int]Metric
-	Rpc     *glightning.Lightning
-	Cron    *cron.Cron
-	Server  *graphql.Client
-	Storage db.PluginDatabase
+	Plugin    *glightning.Plugin
+	Metrics   map[int]Metric
+	Rpc       *glightning.Lightning
+	Cron      *cron.Cron
+	Server    *graphql.Client
+	Storage   db.PluginDatabase
+	WithProxy bool
 }
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
