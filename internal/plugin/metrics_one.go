@@ -82,15 +82,15 @@ type channelStatus struct {
 //
 // It is used in the statusChannel struct
 type ChannelLimits struct {
-	Min int `json:"min"`
-	Max int `json:"max"`
+	Min int64 `json:"min"`
+	Max int64 `json:"max"`
 }
 
 // Container of the fee information related
 // to the channel, used in statusChannel struct
 type ChannelFee struct {
-	Base    int `json:"base"`
-	PerMSat int `json:"per_msat"`
+	Base    uint64 `json:"base"`
+	PerMSat uint64 `json:"per_msat"`
 }
 
 // Wrap all the information about the node that the own node
@@ -196,6 +196,7 @@ type MetricOne struct {
 	// Last check of the plugin, useful to store the data
 	// in the db by timestamp
 	lastCheck int `json:"-"`
+
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
 }
@@ -778,8 +779,8 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 
 	channelRPC := channelListRPC[0]
 
-	channelInfo.Fee.Base = int(channelRPC.BaseFeeMillisatoshi)
-	channelInfo.Fee.PerMSat = int(channelRPC.FeePerMillionth)
+	channelInfo.Fee.Base = channelRPC.BaseFeeMillisatoshi
+	channelInfo.Fee.PerMSat = channelRPC.FeePerMillionth
 	channelInfo.Limits.Min, _ = getMSatValue(channelRPC.HtlcMinimumMilliSatoshis)
 	channelInfo.Limits.Max, _ = getMSatValue(channelRPC.HtlcMaximumMilliSatoshis)
 
@@ -788,15 +789,15 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 }
 
 //FIXME put inside the utils functions
-func getMSatValue(msatStr string) (int, error) {
+func getMSatValue(msatStr string) (int64, error) {
 	msatTokens := strings.Split(msatStr, "msat")
 	if len(msatTokens) == 0 {
 		return -1, nil
 	}
 	msatValue := msatTokens[0]
-	value, err := strconv.ParseInt(msatValue, 10, 32)
+	value, err := strconv.ParseInt(msatValue, 10, 64)
 	if err != nil {
-		log.GetInstance().Error(fmt.Errorf("Error parsing msat: %s", err))
+		log.GetInstance().Errorf("Error parsing msat: %s", err)
 	}
-	return int(value), err
+	return value, err
 }
