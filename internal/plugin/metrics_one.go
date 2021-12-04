@@ -485,7 +485,7 @@ func (instance *MetricOne) ToJSON() (string, error) {
 // Contact the server and make an init the node.
 func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
 	log.GetInstance().Info("Init plugin on repository")
-	err := client.GetMetricOneByNodeID(instance.NodeID, -1, -1)
+	err := client.GetNodeMetadata(instance.NodeID, instance.Network)
 	if err != nil {
 		// If we received an error from the find method, maybe
 		// the node it is not initialized on the server, and we

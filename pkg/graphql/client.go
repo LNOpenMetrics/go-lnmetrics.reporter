@@ -157,6 +157,7 @@ func (instance *Client) MakeQuery(payload string) map[string]string {
 }
 
 func (instance *Client) InitMetric(nodeID string, body *string, signature string) error {
+	log.GetInstance().Info("Call initMetricOne")
 	body = instance.cleanBody(body)
 	payload := fmt.Sprintf(`mutation {
                                   initMetricOne(node_id: "%s", payload: "%s", signature: "%s") {
@@ -170,6 +171,7 @@ func (instance *Client) InitMetric(nodeID string, body *string, signature string
 
 // Utils Function to update the with the last data the metrics on server..
 func (instance *Client) UploadMetric(nodeID string, body *string, signature string) error {
+	log.GetInstance().Info("Call updateMetricOne")
 	cleanBody := instance.cleanBody(body)
 	payload := fmt.Sprintf(`mutation {
                                    updateMetricOne(node_id: "%s", payload: "%s", signature: "%s")
@@ -181,12 +183,34 @@ func (instance *Client) UploadMetric(nodeID string, body *string, signature stri
 
 // Utils function that call the GraphQL server to get the metrics about the channel
 func (instance *Client) GetMetricOneByNodeID(nodeID string, startPeriod int, endPeriod int) error {
+	log.GetInstance().Info("Calling Get Metric One by nodeID")
 	payload := fmt.Sprintf(`query {
                                   getMetricOne(node_id: "%s", start_period: %d, end_period: %d) {
                                      node_id
                                      metric_name
                                   }
                               }`, nodeID, startPeriod, endPeriod)
+	query := instance.MakeQuery(payload)
+	responses, err := instance.MakeRequest(query)
+	for _, resp := range responses {
+		if len(resp.Errors) != 0 {
+			// Get only the first error.
+			// FIXME: It is enough only the first one?
+			errorQL := resp.Errors[0]
+			return fmt.Errorf(errorQL.Message)
+		}
+	}
+	return err
+}
+
+// Utils function to the the node information from the repository
+func (instance *Client) GetNodeMetadata(nodeID string, network string) error {
+	log.GetInstance().Info("Call Get node metadata")
+	payload := fmt.Sprintf(`query {
+                                   getNode(network: "%s", node_id: "%s") {
+                                        last_update
+                                   }
+                                }`, network, nodeID)
 	query := instance.MakeQuery(payload)
 	responses, err := instance.MakeRequest(query)
 	for _, resp := range responses {
