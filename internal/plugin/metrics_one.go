@@ -14,6 +14,7 @@ import (
 
 	"github.com/LNOpenMetrics/lnmetrics.utils/hash/sha256"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
+	"github.com/LNOpenMetrics/lnmetrics.utils/utime"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
 	"github.com/vincenzopalazzo/glightning/glightning"
@@ -736,6 +737,13 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	}
 
 	for _, forward := range listForwards {
+		receivedTime := utime.FromDecimalUnix(forward.ReceivedTime)
+		// The duration of 30 minutes are relative to the plugin uptime event,
+		// however, this can change in the future and can be dynamic.
+		if !utime.InRangeFromUnix(time.Now().Unix(), receivedTime, 30*time.Minute) {
+			// If is an old payments
+			continue
+		}
 		paymentInfo := &PaymentInfo{
 			Direction: ChannelDirections[1],
 			Status:    forward.Status,
