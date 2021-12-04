@@ -63,7 +63,7 @@ After running the plugin you will have the possibility to run the following rpc 
 - `metric_one start end`: RPC command that give you the possibility to query the internal db and make access to the metric data collected by the plugin. The start and end need to be a string that is the timestamp or you can use the following query to make some particular query:
   - `metric_one start="now"`: Give you the possibility to query the metric data that the plugin have in memory;
   - `metric_one start="last"`: Give you the possibility to query the metric data that the plugin committed to the server last time.
-- `lnmetrics-reporter`: RPC command that give you access to the plugin information, like version, go version and architecture this will be useful when there is some bug
+- `lnmetrics-info`: RPC command that give you access to the plugin information, like version, go version and architecture this will be useful when there is some bug
 report or just consult the version of the plugin that the user is running.
 
 ## How to Contribute

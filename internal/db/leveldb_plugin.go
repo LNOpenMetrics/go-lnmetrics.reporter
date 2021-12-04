@@ -10,16 +10,22 @@ import (
 )
 
 type LevelDB struct {
+
 	// Global database version to know basically
 	// how the key are stored.
 	dbVersion int
+
 	// Global Key in the database to get the data model version
 	dbKeyDb string
+
 	// dictionary with the a diction that contains a mapping
 	// to get the correct version by the following info:
 	// - metric_name
 	// - dbVersion
 	metricsDbKeys map[string]string
+
+	// Database path
+	path string
 }
 
 func NewLevelDB(path string) (PluginDatabase, error) {
@@ -51,6 +57,7 @@ func NewLevelDB(path string) (PluginDatabase, error) {
 	return &LevelDB{
 		dbVersion: dataVersionConv,
 		dbKeyDb:   dbKey,
+		path:      strings.Join([]string{path, "db"}, "/"),
 		metricsDbKeys: map[string]string{
 			"metric_one/1": "metric_one",
 			"metric_one/2": "metric_one",
@@ -73,6 +80,10 @@ func (instance *LevelDB) DeleteValue(key string) error {
 
 func (instance *LevelDB) IsReady() bool {
 	return db.GetInstance().Ready()
+}
+
+func (instance *LevelDB) GetDBPath() string {
+	return instance.path
 }
 
 func (instance *LevelDB) StoreMetricOneSnapshot(timestamp int, payload *string) error {

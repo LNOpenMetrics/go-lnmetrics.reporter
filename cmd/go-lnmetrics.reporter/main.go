@@ -93,7 +93,8 @@ func onInit(plugin *glightning.Plugin,
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
-
+	// FIXME: After on init event c-lightning should be ready to accept request
+	// from any plugin.
 	metricsPlugin.RegisterOneTimeEvt("10s")
 }
 
