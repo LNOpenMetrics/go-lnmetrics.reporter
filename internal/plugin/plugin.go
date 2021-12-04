@@ -13,12 +13,13 @@ import (
 )
 
 type MetricsPlugin struct {
-	Plugin  *glightning.Plugin
-	Metrics map[int]Metric
-	Rpc     *glightning.Lightning
-	Cron    *cron.Cron
-	Server  *graphql.Client
-	Storage db.PluginDatabase
+	Plugin    *glightning.Plugin
+	Metrics   map[int]Metric
+	Rpc       *glightning.Lightning
+	Cron      *cron.Cron
+	Server    *graphql.Client
+	Storage   db.PluginDatabase
+	WithProxy bool
 }
 
 func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
@@ -59,7 +60,7 @@ func (plugin *MetricsPlugin) RegisterMethods() error {
 		return err
 	}
 
-	infoMethod := NewPluginRpcMethod()
+	infoMethod := NewPluginRpcMethod(plugin)
 	infoRpcMethod := glightning.NewRpcMethod(infoMethod, "Show go-lnmetrics.reporter info")
 	infoRpcMethod.Category = "metrics"
 	infoRpcMethod.LongDesc = "Return a map where the key is the id of the method and the value is the payload of the metric. The metrics_id is a string that conatins the id divided by a comma. An example is \"diagnostic \"1,2,3\"\""

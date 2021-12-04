@@ -50,4 +50,7 @@ type PluginDatabase interface {
 
 	// Erase database and all the data are lost forever
 	EraseDatabase() error
+
+	// Get location of the DB
+	GetDBPath() string
 }

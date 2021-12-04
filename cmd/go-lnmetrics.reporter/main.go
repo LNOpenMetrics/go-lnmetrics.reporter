@@ -28,6 +28,10 @@ func main() {
 		panic(err)
 	}
 
+	if err := plugin.RegisterNewBoolOption("lnmetrics-noproxy", "Disable the usage of proxy in case only for the go-lnmmetrics.reporter", false); err != nil {
+		panic(err)
+	}
+
 	hook := &glightning.Hooks{RpcCommand: OnRpcCommand}
 	if err := plugin.RegisterHooks(hook); err != nil {
 		panic(err)
@@ -93,7 +97,8 @@ func onInit(plugin *glightning.Plugin,
 		log.GetInstance().Error(fmt.Sprintf("Error received %s", err))
 		panic(err)
 	}
-
+	// FIXME: After on init event c-lightning should be ready to accept request
+	// from any plugin.
 	metricsPlugin.RegisterOneTimeEvt("10s")
 }
 
@@ -114,17 +119,20 @@ func parseOptionsPlugin(pluginConfig *glightning.Config, options map[string]glig
 		})
 	}
 
-	if pluginConfig.Proxy != nil {
+	noProxy := options["lnmetrics-noproxy"]
+
+	if pluginConfig.Proxy != nil && !noProxy.GetValue().(bool) {
 		proxy := pluginConfig.Proxy
 		server, err := graphql.NewWithProxy(urls, proxy.Address, proxy.Port)
 		if err != nil {
 			return err
 		}
 		metricsPlugin.Server = server
+		metricsPlugin.WithProxy = true
 	} else {
 		metricsPlugin.Server = graphql.New(urls)
+		metricsPlugin.WithProxy = false
 	}
-
 	// FIXME: Store the urls on db.
 	return nil
 }
