@@ -69,6 +69,10 @@ type status struct {
 	Forwards *PaymentsSummary `json:"forwards"`
 	// unix time where the check is made.
 	Timestamp int64 `json:"timestamp"`
+	// Node fee settings
+	Fee *ChannelFee `json:"fee"`
+	// Node htlc limits informations
+	Limits *ChannelLimits `json:"limits"`
 }
 
 type channelStatus struct {
@@ -284,7 +288,7 @@ func init() {
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *MetricOne {
 	return &MetricOne{
 		id:        1,
-		Version:   3,
+		Version:   4,
 		Name:      MetricsSupported[1],
 		NodeID:    nodeId,
 		NodeAlias: "unknown",
@@ -368,11 +372,30 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		// the node with that we have the channels with can be offiline for a while
 		// and this mean that can be out of the gossip map.
 	}
+
+	listConfig, err := lightning.ListConfigs()
+	if err != nil {
+		log.GetInstance().Errorf("Error during the list config rpc command: %s", err)
+		return nil, err
+	}
+
+	nodeLimits := &ChannelLimits{
+		Min: int64(listConfig["min-capacity-sat"].(float64)),
+		Max: 0, // TODO: Where is it the max? there is no max so I can put 0 here?
+	}
+
+	nodeFee := &ChannelFee{
+		Base:    uint64(listConfig["fee-base"].(float64)),
+		PerMSat: uint64(listConfig["fee-per-satoshi"].(float64)),
+	}
+
 	status := &status{
 		Event:     nameEvent,
 		Timestamp: time.Now().Unix(),
 		Channels:  channelsSummary,
 		Forwards:  statusPayments,
+		Fee:       nodeFee,
+		Limits:    nodeLimits,
 	}
 
 	return status, nil
@@ -449,6 +472,8 @@ func (instance *MetricOne) MakePersistent() error {
 // or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
+	//TODO: Check if the values are empty, if yes, try a solution
+	// to avoid to push empty payload.
 	lastValue := &ChannelsSummary{
 		TotChannels: 0,
 		Summary:     make([]*ChannelSummary, 0),
