@@ -476,10 +476,9 @@ func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) er
 	log.GetInstance().Debug("On close event on metrics called")
 	//TODO: Check if the values are empty, if yes, try a solution
 	// to avoid to push empty payload.
-	var lastMetric MetricOne
-	jsonLast, err := instance.Storage.LoadLastMetricOne()
-	if err != nil {
-		return err
+	lastValue := &ChannelsSummary{
+		TotChannels: 0,
+		Summary:     make([]*ChannelSummary, 0),
 	}
 	if err := json.Unmarshal([]byte(*jsonLast), &lastMetric); err != nil {
 		return err
