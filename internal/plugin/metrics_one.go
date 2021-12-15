@@ -600,7 +600,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 
 	for _, forward := range forwards {
 		switch forward.Status {
-		case "settled":
+		case "settled", "offered":
 			statusPayments.Completed++
 		case "failed", "local_failed":
 			statusPayments.Failed++
@@ -756,7 +756,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		}
 		channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
 		switch forward.Status {
-		case "settled", "failed":
+		case "settled", "offered", "failed":
 			// do nothings
 			continue
 		case "local_failed":
