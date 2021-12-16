@@ -199,7 +199,7 @@ type MetricOne struct {
 
 	// Last check of the plugin, useful to store the data
 	// in the db by timestamp
-	lastCheck int `json:"-"`
+	lastCheck int64 `json:"-"`
 
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
@@ -337,7 +337,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			payload["version"] = 1
 		}
 	}
-	payload["version"] = 3
+	payload["version"] = 4
 	return nil
 }
 
@@ -422,9 +422,9 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-	instance.lastCheck = int(time.Now().Unix())
+	instance.lastCheck = time.Now().Unix()
 	if status.Timestamp > 0 {
-		instance.lastCheck = int(status.Timestamp)
+		instance.lastCheck = status.Timestamp
 	}
 
 	//FIXME: We could use a set datastructure
@@ -447,9 +447,9 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-	instance.lastCheck = int(time.Now().Unix())
+	instance.lastCheck = time.Now().Unix()
 	if status.Timestamp > 0 {
-		instance.lastCheck = int(status.Timestamp)
+		instance.lastCheck = status.Timestamp
 	}
 	return instance.MakePersistent()
 }
@@ -474,27 +474,26 @@ func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) er
 	log.GetInstance().Debug("On close event on metrics called")
 	//TODO: Check if the values are empty, if yes, try a solution
 	// to avoid to push empty payload.
-	lastValue := &ChannelsSummary{
-		TotChannels: 0,
-		Summary:     make([]*ChannelSummary, 0),
+	var lastMetric MetricOne
+	jsonLast, err := instance.Storage.LoadLastMetricOne()
+	if err != nil {
+		return err
 	}
-	forwards := &PaymentsSummary{
-		Completed: 0,
-		Failed:    0,
-	}
-	if len(instance.UpTime) > 0 {
-		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
-		forwards = instance.UpTime[len(instance.UpTime)-1].Forwards
+	if err := json.Unmarshal([]byte(*jsonLast), &lastMetric); err != nil {
+		return err
 	}
 	now := time.Now().Unix()
+	lastStatus := lastMetric.UpTime[len(lastMetric.UpTime)-1]
 	statusItem := &status{
 		Event:     "on_close",
 		Timestamp: now,
-		Channels:  lastValue,
-		Forwards:  forwards,
+		Channels:  lastStatus.Channels,
+		Forwards:  lastStatus.Forwards,
+		Fee:       lastStatus.Fee,
+		Limits:    lastStatus.Limits,
 	}
 	instance.UpTime = append(instance.UpTime, statusItem)
-	instance.lastCheck = int(now)
+	instance.lastCheck = now
 	return instance.MakePersistent()
 }
 
