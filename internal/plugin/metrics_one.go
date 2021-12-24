@@ -30,6 +30,8 @@ type PaymentInfo struct {
 	FailureReason string `json:"failure_reason,omitempty"`
 	// The code of the failure
 	FailureCode int `json:"failure_code,omitempty"`
+	// instance where the payment is started
+	Timestamp int64 `json:"timestamp"`
 }
 
 // Only a wrapper to pass collected information about the channel
@@ -772,6 +774,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		paymentInfo := &PaymentInfo{
 			Direction: ChannelDirections[1],
 			Status:    forward.Status,
+			Timestamp: utime.FromDecimalUnix(forward.ReceivedTime),
 		}
 		if channel.ShortChannelId == forward.InChannel {
 			paymentInfo.Direction = ChannelDirections[1]
