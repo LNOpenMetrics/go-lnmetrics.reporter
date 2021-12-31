@@ -642,12 +642,20 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel) error {
 	cache := make(map[string]bool)
 	for _, channel := range channels {
-		if err := instance.collectInfoChannel(lightning, channel); err != nil {
-			// void returning error here? We can continue to make the analysis over the channels
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			return err
+
+		switch channel.State {
+		// state of a channel where there is any type of communication yet
+		// we skip this type of state
+		case "CHANNELD_AWAITING_LOCKIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN":
+			continue
+		default:
+			if err := instance.collectInfoChannel(lightning, channel); err != nil {
+				// void returning error here? We can continue to make the analysis over the channels
+				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+				return err
+			}
+			cache[channel.ShortChannelId] = true
 		}
-		cache[channel.ShortChannelId] = true
 	}
 
 	// make intersection of the channels in the cache and a
