@@ -86,7 +86,7 @@ func (instance *LevelDB) GetDBPath() string {
 	return instance.path
 }
 
-func (instance *LevelDB) StoreMetricOneSnapshot(timestamp int, payload *string) error {
+func (instance *LevelDB) StoreMetricOneSnapshot(timestamp int64, payload *string) error {
 	key := strings.Join([]string{"metric_one", fmt.Sprint(timestamp)}, "/")
 	if err := instance.PutValue(key, payload); err != nil {
 		return err

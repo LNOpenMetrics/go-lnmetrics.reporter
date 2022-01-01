@@ -31,7 +31,7 @@ type PluginDatabase interface {
 	// moment defined with a UNIX timestamp.
 	//
 	// This will hide the logic under the database.
-	StoreMetricOneSnapshot(timestamp int, payload *string) error
+	StoreMetricOneSnapshot(timestamp int64, payload *string) error
 
 	// get the information that are stored in the with old key, this
 	// help to very hard migration of the database where the more easy

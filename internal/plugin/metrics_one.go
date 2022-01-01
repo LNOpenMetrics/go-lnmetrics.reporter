@@ -30,6 +30,8 @@ type PaymentInfo struct {
 	FailureReason string `json:"failure_reason,omitempty"`
 	// The code of the failure
 	FailureCode int `json:"failure_code,omitempty"`
+	// instance where the payment is started
+	Timestamp int64 `json:"timestamp"`
 }
 
 // Only a wrapper to pass collected information about the channel
@@ -69,6 +71,10 @@ type status struct {
 	Forwards *PaymentsSummary `json:"forwards"`
 	// unix time where the check is made.
 	Timestamp int64 `json:"timestamp"`
+	// Node fee settings
+	Fee *ChannelFee `json:"fee"`
+	// Node htlc limits informations
+	Limits *ChannelLimits `json:"limits"`
 }
 
 type channelStatus struct {
@@ -195,7 +201,7 @@ type MetricOne struct {
 
 	// Last check of the plugin, useful to store the data
 	// in the db by timestamp
-	lastCheck int `json:"-"`
+	lastCheck int64 `json:"-"`
 
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
@@ -284,7 +290,7 @@ func init() {
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *MetricOne {
 	return &MetricOne{
 		id:        1,
-		Version:   3,
+		Version:   4,
 		Name:      MetricsSupported[1],
 		NodeID:    nodeId,
 		NodeAlias: "unknown",
@@ -333,7 +339,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 			payload["version"] = 1
 		}
 	}
-	payload["version"] = 3
+	payload["version"] = 4
 	return nil
 }
 
@@ -368,11 +374,30 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		// the node with that we have the channels with can be offiline for a while
 		// and this mean that can be out of the gossip map.
 	}
+
+	listConfig, err := lightning.ListConfigs()
+	if err != nil {
+		log.GetInstance().Errorf("Error during the list config rpc command: %s", err)
+		return nil, err
+	}
+
+	nodeLimits := &ChannelLimits{
+		Min: int64(listConfig["min-capacity-sat"].(float64)),
+		Max: 0, // TODO: Where is it the max? there is no max so I can put 0 here?
+	}
+
+	nodeFee := &ChannelFee{
+		Base:    uint64(listConfig["fee-base"].(float64)),
+		PerMSat: uint64(listConfig["fee-per-satoshi"].(float64)),
+	}
+
 	status := &status{
 		Event:     nameEvent,
 		Timestamp: time.Now().Unix(),
 		Channels:  channelsSummary,
 		Forwards:  statusPayments,
+		Fee:       nodeFee,
+		Limits:    nodeLimits,
 	}
 
 	return status, nil
@@ -399,9 +424,9 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-	instance.lastCheck = int(time.Now().Unix())
+	instance.lastCheck = time.Now().Unix()
 	if status.Timestamp > 0 {
-		instance.lastCheck = int(status.Timestamp)
+		instance.lastCheck = status.Timestamp
 	}
 
 	//FIXME: We could use a set datastructure
@@ -424,9 +449,9 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 		return err
 	}
 	instance.UpTime = append(instance.UpTime, status)
-	instance.lastCheck = int(time.Now().Unix())
+	instance.lastCheck = time.Now().Unix()
 	if status.Timestamp > 0 {
-		instance.lastCheck = int(status.Timestamp)
+		instance.lastCheck = status.Timestamp
 	}
 	return instance.MakePersistent()
 }
@@ -449,27 +474,28 @@ func (instance *MetricOne) MakePersistent() error {
 // or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	lastValue := &ChannelsSummary{
-		TotChannels: 0,
-		Summary:     make([]*ChannelSummary, 0),
+	//TODO: Check if the values are empty, if yes, try a solution
+	// to avoid to push empty payload.
+	var lastMetric MetricOne
+	jsonLast, err := instance.Storage.LoadLastMetricOne()
+	if err != nil {
+		return err
 	}
-	forwards := &PaymentsSummary{
-		Completed: 0,
-		Failed:    0,
-	}
-	if len(instance.UpTime) > 0 {
-		lastValue = instance.UpTime[len(instance.UpTime)-1].Channels
-		forwards = instance.UpTime[len(instance.UpTime)-1].Forwards
+	if err := json.Unmarshal([]byte(*jsonLast), &lastMetric); err != nil {
+		return err
 	}
 	now := time.Now().Unix()
+	lastStatus := lastMetric.UpTime[len(lastMetric.UpTime)-1]
 	statusItem := &status{
 		Event:     "on_close",
 		Timestamp: now,
-		Channels:  lastValue,
-		Forwards:  forwards,
+		Channels:  lastStatus.Channels,
+		Forwards:  lastStatus.Forwards,
+		Fee:       lastStatus.Fee,
+		Limits:    lastStatus.Limits,
 	}
 	instance.UpTime = append(instance.UpTime, statusItem)
-	instance.lastCheck = int(now)
+	instance.lastCheck = now
 	return instance.MakePersistent()
 }
 
@@ -616,12 +642,20 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel) error {
 	cache := make(map[string]bool)
 	for _, channel := range channels {
-		if err := instance.collectInfoChannel(lightning, channel); err != nil {
-			// void returning error here? We can continue to make the analysis over the channels
-			log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
-			return err
+
+		switch channel.State {
+		// state of a channel where there is any type of communication yet
+		// we skip this type of state
+		case "CHANNELD_AWAITING_LOCKIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN":
+			continue
+		default:
+			if err := instance.collectInfoChannel(lightning, channel); err != nil {
+				// void returning error here? We can continue to make the analysis over the channels
+				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+				return err
+			}
+			cache[channel.ShortChannelId] = true
 		}
-		cache[channel.ShortChannelId] = true
 	}
 
 	// make intersection of the channels in the cache and a
@@ -748,6 +782,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		paymentInfo := &PaymentInfo{
 			Direction: ChannelDirections[1],
 			Status:    forward.Status,
+			Timestamp: utime.FromDecimalUnix(forward.ReceivedTime),
 		}
 		if channel.ShortChannelId == forward.InChannel {
 			paymentInfo.Direction = ChannelDirections[1]
