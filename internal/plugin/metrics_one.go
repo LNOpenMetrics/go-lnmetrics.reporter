@@ -79,6 +79,9 @@ type status struct {
 }
 
 type channelStatus struct {
+	// the event that originate this status check
+	Event string `json:"event"`
+	// Timestamp when the check is made
 	Timestamp int64 `json:"timestamp"`
 	// Status of the channel
 	Status string `json:"status"`
@@ -379,7 +382,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		return nil, err
 	}
-	if err := instance.collectInfoChannels(lightning, listFunds.Channels); err != nil {
+	if err := instance.collectInfoChannels(lightning, listFunds.Channels, nameEvent); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		// We admit this error here, we print only some log information.
 	}
@@ -668,17 +671,18 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 }
 
 // private method of the module
-func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel) error {
+func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel, event string) error {
 	cache := make(map[string]bool)
 	for _, channel := range channels {
 
 		switch channel.State {
 		// state of a channel where there is any type of communication yet
 		// we skip this type of state
-		case "CHANNELD_AWAITING_LOCKIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN":
+		case "CHANNELD_AWAITING_LOCKIN", "DUALOPEND_OPEN_INIT",
+			"DUALOPEND_AWAITING_LOCKIN":
 			continue
 		default:
-			if err := instance.collectInfoChannel(lightning, channel); err != nil {
+			if err := instance.collectInfoChannel(lightning, channel, event); err != nil {
 				// void returning error here? We can continue to make the analysis over the channels
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				return err
@@ -732,7 +736,7 @@ func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning,
 }
 
 func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
-	channel *glightning.FundingChannel) error {
+	channel *glightning.FundingChannel, event string) error {
 
 	shortChannelId := channel.ShortChannelId
 	var timestamp int64 = 0
@@ -766,8 +770,9 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 		}
 		// A new channels found
 		channelStat := channelStatus{
-			timestamp,
-			channel.State,
+			Event:     event,
+			Timestamp: timestamp,
+			Status:    channel.State,
 		}
 
 		if !found {
