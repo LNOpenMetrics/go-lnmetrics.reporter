@@ -134,21 +134,6 @@ type statusChannel struct {
 	Limits *ChannelLimits `json:"limits"`
 }
 
-func (instance *statusChannel) Clone() *statusChannel {
-	bytes, err := json.Marshal(instance)
-	if err != nil {
-		log.GetInstance().Errorf("Unexpected error during cloning status channel: %s", err)
-		return instance
-	}
-
-	var copy statusChannel
-	if err := json.Unmarshal(bytes, &copy); err != nil {
-		log.GetInstance().Errorf("Unexpected error during cloning status channel: %s", err)
-		return instance
-	}
-	return &copy
-}
-
 type osInfo struct {
 	// Operating system name
 	OS string `json:"os"`
@@ -224,11 +209,6 @@ type MetricOne struct {
 
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
-
-	// TODO: this is only to make the migration
-	// we need to remove when it is not used anymore
-	// removed in april 2022
-	Lightning *glightning.Lightning `json:"-"`
 }
 
 func (m MetricOne) MarshalJSON() ([]byte, error) {
@@ -293,24 +273,8 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 
 	instance.ChannelsInfo = make(map[string]*statusChannel, len(t.ChannelsInfo))
 	for _, channel := range t.ChannelsInfo {
-		if channel.Direction != "" {
-			key := strings.Join([]string{channel.ChannelId, channel.Direction}, "_")
-			instance.ChannelsInfo[key] = channel
-		} else {
-			// This is only to migrate from an old payload to a new one
-			// we have a deprecated period
-			// TODO: Remove in April 2022
-			directions, err := instance.getChannelDirections(instance.Lightning, channel.ChannelId)
-			if err != nil {
-				log.GetInstance().Errorf("Error: %s", err)
-				return err
-			}
-			for _, direction := range directions {
-				key := strings.Join([]string{channel.ChannelId, direction}, "_")
-				channel.Direction = direction
-				instance.ChannelsInfo[key] = channel.Clone()
-			}
-		}
+		key := strings.Join([]string{channel.ChannelId, channel.Direction}, "_")
+		instance.ChannelsInfo[key] = channel
 	}
 
 	return nil
