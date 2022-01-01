@@ -785,8 +785,8 @@ func NewUnknownChannel() *glightning.Channel {
 		LastUpdate:               0,
 		BaseFeeMillisatoshi:      0,
 		FeePerMillionth:          0,
-		HtlcMinimumMilliSatoshis: "unknown",
-		HtlcMaximumMilliSatoshis: "unknown",
+		HtlcMinimumMilliSatoshis: "0msat",
+		HtlcMaximumMilliSatoshis: "0msat",
 	}
 }
 
@@ -819,7 +819,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			NodeId:     channel.Id,
 			Alias:      "unknown",
 			Color:      "unknown",
-			Direction:  "unknown",
+			Direction:  "UNKNOWN",
 			LastUpdate: subChannel.LastUpdate,
 			Forwards:   make([]*PaymentInfo, 0),
 			Fee: &ChannelFee{
@@ -835,6 +835,8 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		channelInfo.Direction = ChannelDirections[1]
 		if subChannel.Source == instance.NodeID {
 			channelInfo.Direction = ChannelDirections[0]
+		} else if subChannel.Source == "" {
+			channelInfo.Direction = "UNKNOWN"
 		}
 
 		if err != nil {
