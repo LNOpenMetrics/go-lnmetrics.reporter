@@ -55,11 +55,10 @@ func TestJSONSerializzation(t *testing.T) {
 
 func TestJSONDeserializzation(t *testing.T) {
 	jsonString := `{
-   "channels_info": [
-{
+   "channels_info": [{
          "capacity": 450000,
          "color": "fe903f",
-         "direction": "",
+         "direction": "INCOOMING",
          "forwards": [
             {
                "direction": "INCOOMING",
@@ -73,10 +72,9 @@ func TestJSONDeserializzation(t *testing.T) {
          "node_id": "036d2ac71176151db04fdac839a0ddea9f3a584f6c23bb0b4ac72c323124ec506b",
          "online": true,
          "public": false,
-"channel_id": "fake",
-"up_times": []
-}
-],
+         "channel_id": "fake",
+         "up_times": []
+     }],
    "color": "02bf81",
    "metric_name": "metric_one",
    "node_id": "033904095f082d5fe8ff8d7ee96172e69f166f1b498ccfd3a1e4e5d139d1fad597",
@@ -107,7 +105,7 @@ func TestJSONDeserializzation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
 	}
-	_, found := metric.ChannelsInfo["fake"]
+	_, found := metric.ChannelsInfo["fake_INCOOMING"]
 	if found == false {
 		t.Errorf("Test failure cause from the missing key in the channels info map. Key \"fake\" missed")
 	}
@@ -119,7 +117,7 @@ func TestJSONMigrationFrom0to1One(t *testing.T) {
 {
          "capacity": 450000,
          "color": "fe903f",
-         "direction": "",
+         "direction": "INCOOMING",
          "forwards": [
             {
                "direction": "INCOOMING",
@@ -167,7 +165,7 @@ func TestJSONMigrationFrom0to1One(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
 	}
-	_, found := metric.ChannelsInfo["fake"]
+	_, found := metric.ChannelsInfo["fake_INCOOMING"]
 	if found == false {
 		t.Errorf("Test failure cause from the missing key in the channels info map. Key \"fake\" missed")
 	}
@@ -179,7 +177,7 @@ func TestJSONMigrationFrom0to1Two(t *testing.T) {
 {
          "capacity": 450000,
          "color": "fe903f",
-         "direction": "",
+         "direction": "INCOOMING",
          "forwards": [
             {
                "direction": "INCOOMING",
@@ -230,7 +228,7 @@ func TestJSONMigrationFrom0to1Two(t *testing.T) {
 		t.Errorf("Test failure cause with metric name different")
 		t.Errorf("We have %s but we expected %s", metric.Name, "metric_one")
 	}
-	_, found := metric.ChannelsInfo["fake"]
+	_, found := metric.ChannelsInfo["fake_INCOOMING"]
 	if found == false {
 		t.Errorf("Test failure cause from the missing key in the channels info map. Key \"fake\" missed")
 	}
@@ -243,7 +241,7 @@ func TestJSONMigrationFrom0to1DevPrefix(t *testing.T) {
 {
          "capacity": 450000,
          "color": "fe903f",
-         "direction": "",
+         "direction": "INCOOMING",
          "forwards": [
             {
                "direction": "INCOOMING",
@@ -291,7 +289,7 @@ func TestJSONMigrationFrom0to1DevPrefix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
 	}
-	_, found := metric.ChannelsInfo["fake"]
+	_, found := metric.ChannelsInfo["fake_INCOOMING"]
 	if found == false {
 		t.Errorf("Test failure cause from the missing key in the channels info map. Key \"fake\" missed")
 	}

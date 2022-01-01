@@ -15,6 +15,15 @@ var MetricsSupported map[int]string
 // 2 = mutual.
 var ChannelDirections map[int]string
 
+func init() {
+	MetricsSupported = make(map[int]string)
+	MetricsSupported[1] = "metric_one"
+
+	ChannelDirections = make(map[int]string)
+	ChannelDirections[0] = "OUTCOMING"
+	ChannelDirections[1] = "INCOOMING"
+}
+
 // All the metrics need to respect this interface
 type Metric interface {
 	// return the name of the metric
