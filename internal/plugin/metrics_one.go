@@ -835,6 +835,8 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		channelInfo.Direction = ChannelDirections[1]
 		if subChannel.Source == instance.NodeID {
 			channelInfo.Direction = ChannelDirections[0]
+		} else if subChannel.Source == "" {
+			channelInfo.Direction = "UNKNOWN"
 		}
 
 		if err != nil {
