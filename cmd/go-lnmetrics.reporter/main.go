@@ -174,5 +174,7 @@ func loadLastMetricOne() (*metrics.MetricOne, error) {
 		return nil, err
 	}
 	metric.Storage = metricsPlugin.Storage
+	// TODO: useful to make a migration, this need to be removed in April 2022
+	metric.Lightning = metricsPlugin.Rpc
 	return &metric, nil
 }

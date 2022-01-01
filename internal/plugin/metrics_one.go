@@ -37,11 +37,12 @@ type PaymentInfo struct {
 // Only a wrapper to pass collected information about the channel
 // not used inside the metrics.
 type ChannelInfo struct {
-	NodeId    string
-	Alias     string
-	Color     string
-	Direction string
-	Forwards  []*PaymentInfo
+	NodeId     string
+	Alias      string
+	Color      string
+	Direction  string
+	LastUpdate uint
+	Forwards   []*PaymentInfo
 	// information about the channels fee
 	Fee *ChannelFee `json:"fee"`
 	// HTLC limit of the node where we have a channel with
@@ -130,6 +131,21 @@ type statusChannel struct {
 	Limits *ChannelLimits `json:"limits"`
 }
 
+func (instance *statusChannel) Clone() *statusChannel {
+	bytes, err := json.Marshal(instance)
+	if err != nil {
+		log.GetInstance().Errorf("Unexpected error during cloning status channel: %s", err)
+		return instance
+	}
+
+	var copy statusChannel
+	if err := json.Unmarshal(bytes, &copy); err != nil {
+		log.GetInstance().Errorf("Unexpected error during cloning status channel: %s", err)
+		return instance
+	}
+	return &copy
+}
+
 type osInfo struct {
 	// Operating system name
 	OS string `json:"os"`
@@ -205,6 +221,11 @@ type MetricOne struct {
 
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
+
+	// TODO: this is only to make the migration
+	// we need to remove when it is not used anymore
+	// removed in april 2022
+	Lightning *glightning.Lightning `json:"-"`
 }
 
 func (m MetricOne) MarshalJSON() ([]byte, error) {
@@ -229,8 +250,8 @@ func (m MetricOne) MarshalJSON() ([]byte, error) {
 
 	// move map elements to slice
 	channels := make([]*statusChannel, 0, len(m.ChannelsInfo))
-	for _, c := range m.ChannelsInfo {
-		channels = append(channels, c)
+	for _, channel := range m.ChannelsInfo {
+		channels = append(channels, channel)
 	}
 
 	// Pass in an instance of the new type T to json.Marshal.
@@ -268,22 +289,28 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	}
 
 	instance.ChannelsInfo = make(map[string]*statusChannel, len(t.ChannelsInfo))
-	for _, c := range t.ChannelsInfo {
-		instance.ChannelsInfo[c.ChannelId] = c
+	for _, channel := range t.ChannelsInfo {
+		if channel.Direction != "" {
+			key := strings.Join([]string{channel.ChannelId, channel.Direction}, "_")
+			instance.ChannelsInfo[key] = channel
+		} else {
+			// This is only to migrate from an old payload to a new one
+			// we have a deprecated period
+			// TODO: Remove in April 2022
+			directions, err := instance.getChannelDirections(instance.Lightning, channel.ChannelId)
+			if err != nil {
+				log.GetInstance().Errorf("Error: %s", err)
+				return err
+			}
+			for _, direction := range directions {
+				key := strings.Join([]string{channel.ChannelId, direction}, "_")
+				channel.Direction = direction
+				instance.ChannelsInfo[key] = channel.Clone()
+			}
+		}
 	}
 
 	return nil
-}
-
-func init() {
-	// TODO: Fill this map on some common package.
-	MetricsSupported = make(map[int]string)
-	MetricsSupported[1] = "metric_one"
-
-	ChannelDirections = make(map[int]string)
-	ChannelDirections[0] = "OUTCOMING"
-	ChannelDirections[1] = "INCOOMING"
-	ChannelDirections[2] = "MUTUAL"
 }
 
 // This method is required by the
@@ -295,9 +322,11 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		NodeID:    nodeId,
 		NodeAlias: "unknown",
 		Network:   "unknown",
-		OSInfo: &osInfo{OS: sysInfo.OS.Name,
+		OSInfo: &osInfo{
+			OS:           sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
-			Architecture: sysInfo.Architecture},
+			Architecture: sysInfo.Architecture,
+		},
 		NodeInfo: &NodeInfo{
 			Implementation: "unknown",
 			Version:        "unknown",
@@ -654,7 +683,15 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				return err
 			}
-			cache[channel.ShortChannelId] = true
+			directions, err := instance.getChannelDirections(lightning, channel.ShortChannelId)
+			if err != nil {
+				log.GetInstance().Errorf("Error: %s", err)
+				return nil
+			}
+			for _, direction := range directions {
+				key := strings.Join([]string{channel.ShortChannelId, direction}, "_")
+				cache[key] = true
+			}
 		}
 	}
 
@@ -673,49 +710,92 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	return nil
 }
 
+func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning, channelID string) ([]string, error) {
+	directions := make([]string, 0)
+
+	channels, err := lightning.GetChannel(channelID)
+
+	if err != nil {
+		log.GetInstance().Errorf("Error: %s", err)
+		return nil, err
+	}
+
+	for _, channel := range channels {
+		direction := ChannelDirections[1]
+		if channel.Source == instance.NodeID {
+			direction = ChannelDirections[0]
+		}
+		directions = append(directions, direction)
+	}
+
+	return directions, nil
+}
+
 func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 	channel *glightning.FundingChannel) error {
 
 	shortChannelId := channel.ShortChannelId
-	infoChannel, found := instance.ChannelsInfo[shortChannelId]
 	var timestamp int64 = 0
 	// avoid to store the wrong data related to the gossip delay.
 	if instance.pingNode(lightning, channel.Id) {
 		timestamp = time.Now().Unix()
 	}
 
-	info, err := instance.getChannelInfo(lightning, channel, infoChannel)
+	directions, err := instance.getChannelDirections(lightning, shortChannelId)
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		return err
 	}
 
-	// A new channels found
-	channelStat := channelStatus{timestamp, channel.State}
-	if !found {
-		upTimes := make([]*channelStatus, 1)
-		upTimes[0] = &channelStat
-		// TODO: Could be good to have a information about the direction of the channel
-		newInfoChannel := statusChannel{
-			ChannelId: shortChannelId,
-			NodeId:    info.NodeId,
-			NodeAlias: info.Alias,
-			Color:     info.Color,
-			Capacity:  channel.ChannelSatoshi,
-			Forwards:  info.Forwards,
-			UpTimes:   upTimes,
-			Online:    channel.Connected,
-			Fee:       info.Fee,
-			Limits:    info.Limits,
+	for _, direction := range directions {
+		key := strings.Join([]string{shortChannelId, direction}, "_")
+		infoChannel, found := instance.ChannelsInfo[key]
+
+		infoMap, err := instance.getChannelInfo(lightning, channel, infoChannel)
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
+			return err
 		}
-		instance.ChannelsInfo[shortChannelId] = &newInfoChannel
-	} else {
-		infoChannel.Capacity = channel.ChannelSatoshi
-		infoChannel.UpTimes = append(infoChannel.UpTimes, &channelStat)
-		infoChannel.Color = info.Color
-		infoChannel.Online = channel.Connected
-		infoChannel.Fee = info.Fee
-		infoChannel.Limits = info.Limits
+
+		info, infoFound := infoMap[direction]
+		if !infoFound {
+			log.GetInstance().Errorf("Error: channel not exist for direction %s", direction)
+			// this should never happen, because we fill the channel with the same
+			// method that we derive the directions
+			return fmt.Errorf("Error: channel not exist for direction %s", direction)
+		}
+		// A new channels found
+		channelStat := channelStatus{
+			timestamp,
+			channel.State,
+		}
+
+		if !found {
+			upTimes := make([]*channelStatus, 1)
+			upTimes[0] = &channelStat
+			newInfoChannel := statusChannel{
+				ChannelId:  shortChannelId,
+				NodeId:     info.NodeId,
+				NodeAlias:  info.Alias,
+				Color:      info.Color,
+				Capacity:   channel.ChannelSatoshi,
+				LastUpdate: info.LastUpdate,
+				Forwards:   info.Forwards,
+				UpTimes:    upTimes,
+				Online:     channel.Connected,
+				Direction:  info.Direction,
+				Fee:        info.Fee,
+				Limits:     info.Limits,
+			}
+			instance.ChannelsInfo[key] = &newInfoChannel
+		} else {
+			infoChannel.Capacity = channel.ChannelSatoshi
+			infoChannel.UpTimes = append(infoChannel.UpTimes, &channelStat)
+			infoChannel.Color = info.Color
+			infoChannel.Online = channel.Connected
+			infoChannel.Fee = info.Fee
+			infoChannel.Limits = info.Limits
+		}
 	}
 	return nil
 }
@@ -728,111 +808,141 @@ func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId stri
 	return true
 }
 
+// Get the information about the channel that is open with the node id
+//
+// lightning: Is the Go API for c-lightning
+// channel: Contains the channels information of the command listfunds returned by c-lightning
+// prevInstance: the previous instance of the channel info stored inside the map, if exist.
+//
+// as return:
+// map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is splitted.
+// error: If any error during this operation occurs
 func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
-	channel *glightning.FundingChannel, prevInstance *statusChannel) (*ChannelInfo, error) {
+	channel *glightning.FundingChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
 
-	nodeInfo, err := lightning.GetNode(channel.Id)
-	// Init the default data here
-	channelInfo := ChannelInfo{
-		NodeId:    channel.Id,
-		Alias:     "unknown",
-		Color:     "unknown",
-		Direction: "unknown",
-		Forwards:  make([]*PaymentInfo, 0),
-		Fee: &ChannelFee{
-			Base:    0,
-			PerMSat: 0,
-		},
-		Limits: &ChannelLimits{
-			Min: 0,
-			Max: 0,
-		},
-	}
+	result := make(map[string]*ChannelInfo)
 
+	subChannels, err := lightning.GetChannel(channel.ShortChannelId)
+
+	// This error should never happen
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during the call listNodes: %s", err))
-		if prevInstance != nil {
-			channelInfo.Alias = prevInstance.NodeAlias
-			channelInfo.Color = prevInstance.Color
-		}
-		// We avoid to return the error because it is correct that the node
-		// it is not up and running, this means that it is fine admit an
-		// error here.
-		return &channelInfo, nil
-	}
-
-	channelInfo.Alias = nodeInfo.Alias
-	channelInfo.Color = nodeInfo.Color
-
-	listForwards, err := lightning.ListForwards()
-
-	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during the listForwards call: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
 
-	for _, forward := range listForwards {
-		receivedTime := utime.FromDecimalUnix(forward.ReceivedTime)
-		// The duration of 30 minutes are relative to the plugin uptime event,
-		// however, this can change in the future and can be dynamic.
-		if !utime.InRangeFromUnix(time.Now().Unix(), receivedTime, 30*time.Minute) {
-			// If is an old payments
+	for _, subChannel := range subChannels {
+		nodeInfo, err := lightning.GetNode(channel.Id)
+		// Init the default data here
+		channelInfo := &ChannelInfo{
+			NodeId:     channel.Id,
+			Alias:      "unknown",
+			Color:      "unknown",
+			Direction:  "unknown",
+			LastUpdate: subChannel.LastUpdate,
+			Forwards:   make([]*PaymentInfo, 0),
+			Fee: &ChannelFee{
+				Base:    subChannel.BaseFeeMillisatoshi,
+				PerMSat: subChannel.FeePerMillionth,
+			},
+			Limits: &ChannelLimits{
+				Min: getMSatValue(subChannel.HtlcMinimumMilliSatoshis),
+				Max: getMSatValue(subChannel.HtlcMaximumMilliSatoshis),
+			},
+		}
+
+		channelInfo.Direction = ChannelDirections[1]
+		if subChannel.Source == instance.NodeID {
+			channelInfo.Direction = ChannelDirections[0]
+		}
+
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error during the call listNodes: %s", err))
+			if prevInstance != nil {
+				channelInfo.Alias = prevInstance.NodeAlias
+				channelInfo.Color = prevInstance.Color
+			}
+			// We avoid to return the error because it is correct that the node
+			// it is not up and running, this means that it is fine admit an
+			// error here.i
+			result[channelInfo.Direction] = channelInfo
 			continue
 		}
-		paymentInfo := &PaymentInfo{
-			Direction: ChannelDirections[1],
-			Status:    forward.Status,
-			Timestamp: utime.FromDecimalUnix(forward.ReceivedTime),
+
+		channelInfo.Alias = nodeInfo.Alias
+		channelInfo.Color = nodeInfo.Color
+
+		listForwards, err := lightning.ListForwards()
+
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error during the listForwards call: %s", err))
+			return nil, err
 		}
-		if channel.ShortChannelId == forward.InChannel {
-			paymentInfo.Direction = ChannelDirections[1]
-		} else if channel.ShortChannelId == forward.OutChannel {
-			paymentInfo.Direction = ChannelDirections[0]
-		}
-		channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
-		switch forward.Status {
-		case "settled", "offered", "failed":
-			// do nothings
-			continue
-		case "local_failed":
-			// store the information about the failure
-			if len(channelInfo.Forwards) == 0 {
+
+		for _, forward := range listForwards {
+			receivedTime := utime.FromDecimalUnix(forward.ReceivedTime)
+			// The duration of 30 minutes are relative to the plugin uptime event,
+			// however, this can change in the future and can be dynamic.
+			if !utime.InRangeFromUnix(time.Now().Unix(), receivedTime, 30*time.Minute) {
+				// If is an old payments
 				continue
 			}
-			paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
-			paymentInfo.FailureReason = forward.FailReason
-			paymentInfo.FailureCode = forward.FailCode
-		default:
-			return nil, fmt.Errorf("Status %s unexpected", forward.Status)
+
+			// by default we assume that the payment has a out direction
+			paymentInfo := &PaymentInfo{
+				Direction: ChannelDirections[1],
+				Status:    forward.Status,
+				Timestamp: utime.FromDecimalUnix(forward.ReceivedTime),
+			}
+
+			// if we have the forward payment is inside the our direction
+			// we change the direction from out to in.
+			if channel.ShortChannelId == forward.OutChannel {
+				paymentInfo.Direction = ChannelDirections[0]
+			}
+
+			// TODO: we are assuming that from a in channel we can receive
+			// only in forward payment, and from outcoming payment we can forward
+			// only if the channel is in outcoming state
+			//
+			// is correct the intuition?
+			if paymentInfo.Direction != channelInfo.Direction {
+				continue
+			}
+
+			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
+
+			switch forward.Status {
+			case "settled", "offered", "failed":
+				// do nothings
+				continue
+			case "local_failed":
+				// store the information about the failure
+				if len(channelInfo.Forwards) == 0 {
+					continue
+				}
+				paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
+				paymentInfo.FailureReason = forward.FailReason
+				paymentInfo.FailureCode = forward.FailCode
+			default:
+				return nil, fmt.Errorf("Status %s unexpected", forward.Status)
+			}
 		}
+		result[channelInfo.Direction] = channelInfo
 	}
-
-	channelListRPC, err := lightning.GetChannel(channel.ShortChannelId)
-	if err != nil {
-		return nil, err
-	}
-
-	channelRPC := channelListRPC[0]
-
-	channelInfo.Fee.Base = channelRPC.BaseFeeMillisatoshi
-	channelInfo.Fee.PerMSat = channelRPC.FeePerMillionth
-	channelInfo.Limits.Min, _ = getMSatValue(channelRPC.HtlcMinimumMilliSatoshis)
-	channelInfo.Limits.Max, _ = getMSatValue(channelRPC.HtlcMaximumMilliSatoshis)
-
 	//TODO Adding support for the dual founding channels.
-	return &channelInfo, nil
+	return result, nil
 }
 
 //FIXME put inside the utils functions
-func getMSatValue(msatStr string) (int64, error) {
+func getMSatValue(msatStr string) int64 {
 	msatTokens := strings.Split(msatStr, "msat")
 	if len(msatTokens) == 0 {
-		return -1, nil
+		return -1
 	}
 	msatValue := msatTokens[0]
 	value, err := strconv.ParseInt(msatValue, 10, 64)
 	if err != nil {
 		log.GetInstance().Errorf("Error parsing msat: %s", err)
 	}
-	return value, err
+	return value
 }
