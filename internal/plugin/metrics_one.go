@@ -684,8 +684,11 @@ func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning,
 	channels, err := lightning.GetChannel(channelID)
 
 	if err != nil {
+		// This should happen when a channel is no longer inside the gossip
+		// map.
 		log.GetInstance().Errorf("Error: %s", err)
-		return nil, err
+		directions = append(directions, "UNKNOWN")
+		return directions, nil
 	}
 
 	for _, channel := range channels {
@@ -777,6 +780,16 @@ func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId stri
 	return true
 }
 
+func NewUnknownChannel() *glightning.Channel {
+	return &glightning.Channel{
+		LastUpdate:               0,
+		BaseFeeMillisatoshi:      0,
+		FeePerMillionth:          0,
+		HtlcMinimumMilliSatoshis: "unknown",
+		HtlcMaximumMilliSatoshis: "unknown",
+	}
+}
+
 // Get the information about the channel that is open with the node id
 //
 // lightning: Is the Go API for c-lightning
@@ -796,7 +809,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	// This error should never happen
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
-		return nil, err
+		subChannels = []*glightning.Channel{NewUnknownChannel()}
 	}
 
 	for _, subChannel := range subChannels {
@@ -874,7 +887,8 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			// only if the channel is in outcoming state
 			//
 			// is correct the intuition?
-			if paymentInfo.Direction != channelInfo.Direction {
+			if channelInfo.Direction != "UNKNOWN" &&
+				paymentInfo.Direction != channelInfo.Direction {
 				continue
 			}
 
