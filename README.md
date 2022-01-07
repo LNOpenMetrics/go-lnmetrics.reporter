@@ -62,7 +62,7 @@ In addition, there are the following optional parameters:
 
 ## How to Use
 
-After running the plugin you will have the possibility to run the following rpc command from lightning-cli, and them are described below:
+After running the plugin you will have the possibility to run the following rpc command from lightning-cli, and they are described below:
 
 - `metric_one start end`: RPC command that give you the possibility to query the internal db and make access to the metric data collected by the plugin. The start and end need to be a string that is the timestamp or you can use the following query to make some particular query:
   - `metric_one start="now"`: Give you the possibility to query the metric data that the plugin have in memory;
