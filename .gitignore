@@ -3,3 +3,5 @@ vendor
 go-lnmetrics
 
 *.out
+
+.idea/

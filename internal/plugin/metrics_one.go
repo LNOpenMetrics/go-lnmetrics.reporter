@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/cache"
 	"reflect"
 	"strconv"
 	"strings"
@@ -148,7 +149,7 @@ type PaymentsSummary struct {
 	Failed    uint64 `json:"failed"`
 }
 
-// Contains the info about the ln node.
+// NodeInfo Contains the info about the ln node.
 type NodeInfo struct {
 	Implementation string `json:"implementation"`
 	Version        string `json:"version"`
@@ -160,7 +161,7 @@ type NodeAddress struct {
 	Port uint   `json:"port"`
 }
 
-// Main data structure that it is filled by the collection data phase.
+// MetricOne Main data structure that it is filled by the collection data phase.
 type MetricOne struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
@@ -211,7 +212,7 @@ type MetricOne struct {
 	Storage db.PluginDatabase `json:"-"`
 }
 
-func (m MetricOne) MarshalJSON() ([]byte, error) {
+func (instance MetricOne) MarshalJSON() ([]byte, error) {
 	// Declare a new type using the definition of MetricOne,
 	// the result of this is that M will have the same structure
 	// as MetricOne but none of its methods (this avoids recursive
@@ -232,8 +233,8 @@ func (m MetricOne) MarshalJSON() ([]byte, error) {
 	}
 
 	// move map elements to slice
-	channels := make([]*statusChannel, 0, len(m.ChannelsInfo))
-	for _, channel := range m.ChannelsInfo {
+	channels := make([]*statusChannel, 0, len(instance.ChannelsInfo))
+	for _, channel := range instance.ChannelsInfo {
 		channels = append(channels, channel)
 	}
 
@@ -241,12 +242,12 @@ func (m MetricOne) MarshalJSON() ([]byte, error) {
 	// For the embedded M field use a converted instance of the receiver.
 	// For the ChannelsInfo field use the channels slice.
 	return json.Marshal(T{
-		M:            M(m),
+		M:            M(instance),
 		ChannelsInfo: channels,
 	})
 }
 
-// Same as MarshalJSON but in reverse.
+// UnmarshalJSON Same as MarshalJSON but in reverse.
 func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	var jsonMap map[string]interface{}
 	if err := json.Unmarshal(data, &jsonMap); err != nil {
@@ -280,7 +281,7 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// This method is required by the
+// NewMetricOne This method is required by the interface
 func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *MetricOne {
 	return &MetricOne{
 		id:        1,
@@ -313,9 +314,9 @@ func (instance *MetricOne) MetricName() *string {
 }
 
 // Migrate from a payload format to another, with the help of the version number.
-// Note that it is required implementing a required strategy only if the some
-// properties will change during the time, if somethings it is only add, we
-// don't have anythings to migrate.
+// Note that it is required implementing a required strategy only if the same
+// properties will change during the time, if something's it is only add, we
+// don't have anything's to migrate.
 func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	version, found := payload["version"]
 
@@ -339,7 +340,7 @@ func (instance *MetricOne) Migrate(payload map[string]interface{}) error {
 	return nil
 }
 
-// Generic Plugin callback that it is ran each time that the plugin need to recording a new event.
+// Generic Plugin callback that it is run each time that the plugin need to recording a new event.
 func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
 	listFunds, err := lightning.ListFunds()
 	if err != nil {
@@ -399,7 +400,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 	return status, nil
 }
 
-// One time callback called from the lightning implementation
+// OnInit One time callback called from the lightning implementation
 func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	getInfo, err := lightning.GetInfo()
 	if err != nil {
@@ -425,7 +426,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 		instance.lastCheck = status.Timestamp
 	}
 
-	//FIXME: We could use a set datastructure
+	//FIXME: We could use a set datastructures
 	instance.Address = make([]*NodeAddress, 0)
 	for _, address := range getInfo.Addresses {
 		nodeAddress := &NodeAddress{
@@ -452,21 +453,21 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 	return instance.MakePersistent()
 }
 
-func (metric *MetricOne) UpdateWithMsg(message *Msg,
+func (instance *MetricOne) UpdateWithMsg(message *Msg,
 	lightning *glightning.Lightning) error {
-	return fmt.Errorf("Method not supported")
+	return fmt.Errorf("method not supported")
 }
 
 func (instance *MetricOne) MakePersistent() error {
-	json, err := instance.ToJSON()
+	instanceJson, err := instance.ToJSON()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("JSON error %s", err))
 		return err
 	}
-	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &json)
+	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson)
 }
 
-// here the message is not useful, but we keep it only for future evolution
+// FIXME: the message is not useful, but we keep it only for future evolution
 // or we will remove it from here.
 func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
@@ -495,6 +496,7 @@ func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) er
 	return instance.MakePersistent()
 }
 
+// ToJSON Convert the MetricOne structure to a JSON string.
 func (instance *MetricOne) ToJSON() (string, error) {
 	json, err := json.Marshal(&instance)
 	if err != nil {
@@ -504,7 +506,7 @@ func (instance *MetricOne) ToJSON() (string, error) {
 	return string(json), nil
 }
 
-// Contact the server and make an init the node.
+// InitOnRepo Contact the server and make an init the node.
 func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
 	log.GetInstance().Info("Init plugin on repository")
 	err := client.GetNodeMetadata(instance.NodeID, instance.Network)
@@ -546,7 +548,7 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 	}
 }
 
-// Contact the server and make an update request
+// UploadOnRepo Contact the server and make an update request
 func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
 	payload, err := instance.ToJSON()
 	if err != nil {
@@ -572,6 +574,41 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 	return nil
 }
 
+func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, channelID string) (*cache.NodeInfoCache, error) {
+	var nodeInfo *cache.NodeInfoCache
+	if cache.GetInstance().IsInCache(channelID) {
+		bytes, err := cache.GetInstance().GetFromCache(channelID)
+		if err != nil {
+			log.GetInstance().Errorf("Error %s:", err)
+			return nil, err
+		}
+		if err := json.Unmarshal(bytes, nodeInfo); err != nil {
+			log.GetInstance().Errorf("Error %s", err)
+			return nil, err
+		}
+	}
+
+	if nodeInfo == nil {
+		// FIXME: we need some method to update the cache and prefilled at the startup.
+		node, err := lightning.GetNode(channelID)
+		if err != nil {
+			log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
+			// We admit this error, a node can be forgotten by the gossip if it is offline for long time.
+			return nil, err
+		}
+		nodeInfo = &cache.NodeInfoCache{
+			ID:       node.Id,
+			Alias:    node.Alias,
+			Color:    node.Color,
+			Features: node.Features,
+		}
+		if err := cache.GetInstance().PutToCache(nodeInfo.ID, nodeInfo); err != nil {
+			log.GetInstance().Errorf("%s", err)
+		}
+	}
+	return nodeInfo, nil
+}
+
 // Make a summary of all the channels information that the node have a channels with.
 func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
 	channelsSummary := &ChannelsSummary{
@@ -595,17 +632,14 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 				ChannelId: channel.ShortChannelId,
 				State:     channel.State,
 			}
-			// FIXME: With too many channels this can require to many node request!
-			// this can avoid to get all node node known, but this also can have a very big response.
-			node, err := lightning.GetNode(channel.Id)
+
+			nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
 			if err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
-				// We admit this error, a node can be forgotten by the gossip if it is offline for long time.
 				continue
 			}
 			channelsSummary.TotChannels++
-			channelSummary.Alias = node.Alias
-			channelSummary.Color = node.Color
+			channelSummary.Alias = nodeInfo.Alias
+			channelSummary.Color = nodeInfo.Color
 			summary = append(summary, channelSummary)
 		}
 		channelsSummary.Summary = summary
@@ -813,7 +847,10 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	}
 
 	for _, subChannel := range subChannels {
-		nodeInfo, err := lightning.GetNode(channel.Id)
+		nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
+		if err != nil {
+			continue
+		}
 		// Init the default data here
 		channelInfo := &ChannelInfo{
 			NodeId:     channel.Id,
@@ -914,7 +951,6 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		}
 		result[channelInfo.Direction] = channelInfo
 	}
-	//TODO Adding support for the dual founding channels.
 	return result, nil
 }
 
