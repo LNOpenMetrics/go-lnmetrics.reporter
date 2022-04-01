@@ -54,64 +54,71 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 func (plugin *MetricsPlugin) RegisterMethods() error {
 	method := NewMetricPlugin(plugin)
 	rpcMethod := glightning.NewRpcMethod(method, "Show diagnostic node")
-	rpcMethod.LongDesc = "Show the diagnostic data of the lightning network node"
-	rpcMethod.Category = "metrics"
+	rpcMethod.LongDesc = "Show the metric one data of the lightning network node. An example metric_one start=last"
+	rpcMethod.Category = "lnmetrics"
 	if err := plugin.Plugin.RegisterMethod(rpcMethod); err != nil {
 		return err
 	}
 
 	infoMethod := NewPluginRpcMethod(plugin)
 	infoRpcMethod := glightning.NewRpcMethod(infoMethod, "Show go-lnmetrics.reporter info")
-	infoRpcMethod.Category = "metrics"
-	infoRpcMethod.LongDesc = "Return a map where the key is the id of the method and the value is the payload of the metric. The metrics_id is a string that conatins the id divided by a comma. An example is \"diagnostic \"1,2,3\"\""
+	infoRpcMethod.Category = "lnmetrics"
+	infoRpcMethod.LongDesc = "Return the info od the env where the plugin is running. An example is \"lnmetrics-info"
 	if err := plugin.Plugin.RegisterMethod(infoRpcMethod); err != nil {
 		return err
 	}
 
+	cacheMethod := NewCleanCacheRPC(plugin)
+	cacheRPCMethod := glightning.NewRpcMethod(cacheMethod, "Clean all the lnmetrics cache")
+	cacheRPCMethod.Category = "lnmetrics"
+	cacheRPCMethod.LongDesc = "Clean the cache made by the plugin during the time. An example is \"lnmetrics-cache clean"
+	if err := plugin.Plugin.RegisterMethod(cacheRPCMethod); err != nil {
+		return err
+	}
 	return nil
 }
 
 //nolint
-func (instance *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
-	if err := metric.UpdateWithMsg(msg, instance.Rpc); err != nil {
+func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
+	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during update metrics event: %s", err))
 	}
 }
 
 // Call on stop operation on the node when the caller are shoutdown it self.
-func (instance *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
-	err := metric.OnClose(msg, instance.Rpc)
+func (plugin *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
+	err := metric.OnStop(msg, plugin.Rpc)
 	if err != nil {
 		log.GetInstance().Error(err)
 	}
 }
 
 // Update the metrics without any information received by the caller
-func (instance *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
+func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	log.GetInstance().Debug("Calling Update on metrics")
-	err := metric.Update(instance.Rpc)
+	err := metric.Update(plugin.Rpc)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
 }
 
-func (instance *MetricsPlugin) updateAndUploadMetric(metric Metric) {
+func (plugin *MetricsPlugin) updateAndUploadMetric(metric Metric) {
 	log.GetInstance().Info("Calling update and upload metric")
-	instance.callUpdateOnMetricNoMsg(metric)
-	if err := metric.UploadOnRepo(instance.Server, instance.Rpc); err != nil {
+	plugin.callUpdateOnMetricNoMsg(metric)
+	if err := metric.UploadOnRepo(plugin.Server, plugin.Rpc); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
 }
 
 // Register internal recurrent methods
-func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
+func (plugin *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	log.GetInstance().Info(fmt.Sprintf("Register recurrent event each %s", after))
-	instance.Cron = cron.New()
+	plugin.Cron = cron.New()
 	// FIXME: Discover what is the first value
-	_, err := instance.Cron.AddFunc(after, func() {
+	_, err := plugin.Cron.AddFunc(after, func() {
 		log.GetInstance().Info("Update and Uploading metrics")
-		for _, metric := range instance.Metrics {
-			go instance.updateAndUploadMetric(metric)
+		for _, metric := range plugin.Metrics {
+			go plugin.updateAndUploadMetric(metric)
 		}
 	})
 	if err != nil {
@@ -119,7 +126,7 @@ func (instance *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	}
 }
 
-func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
+func (plugin *MetricsPlugin) RegisterOneTimeEvt(after string) {
 	log.GetInstance().Info(fmt.Sprintf("Register one time event after %s", after))
 	duration, err := time.ParseDuration(after)
 	if err != nil {
@@ -129,7 +136,7 @@ func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
 	time.AfterFunc(duration, func() {
 		log.GetInstance().Debug("Calling on time function function")
 		// TODO: Should C-Lightning send a on init event like notification?
-		for _, metric := range instance.Metrics {
+		for _, metric := range plugin.Metrics {
 			go func(instance *MetricsPlugin, metric Metric) {
 				err := metric.OnInit(instance.Rpc)
 				if err != nil {
@@ -141,7 +148,7 @@ func (instance *MetricsPlugin) RegisterOneTimeEvt(after string) {
 					log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				}
 
-			}(instance, metric)
+			}(plugin, metric)
 		}
 	})
 }

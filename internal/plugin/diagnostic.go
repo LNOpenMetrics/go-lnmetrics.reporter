@@ -15,7 +15,7 @@ type MetricOneRpcMethod struct {
 	plugin *MetricsPlugin `json:"-"`
 }
 
-func (rpc *MetricOneRpcMethod) Name() string {
+func (instance *MetricOneRpcMethod) Name() string {
 	return "metric_one"
 }
 
