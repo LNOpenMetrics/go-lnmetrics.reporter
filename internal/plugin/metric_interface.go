@@ -1,3 +1,5 @@
+// Package plugin implement all the necessary building blocks to implement
+// an open source metrics.
 package plugin
 
 import (
@@ -6,7 +8,7 @@ import (
 	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
-// mapping the internal id with the name of the metrics.
+// MetricsSupported mapping the internal id with the name of the metrics.
 // the id is passed by the plugin RPC name.
 var MetricsSupported map[int]string
 
@@ -24,40 +26,33 @@ func init() {
 	ChannelDirections[1] = "INCOOMING"
 }
 
-// All the metrics need to respect this interface
+// Metric All the metrics need to respect this interface
 type Metric interface {
-	// return the name of the metric
+	// MetricName return the name of the metric
 	MetricName() *string
 
-	// call this to initialized the metric with node
-	// information if any error occurs, a not nil value is
-	// returned
+	// OnInit initialize the method with node information
 	OnInit(lightning *glightning.Lightning) error
 
-	// Call this method when the close rpc method is called
-	OnClose(msg *Msg, lightning *glightning.Lightning) error
+	// OnStop commit the actual information before exit
+	OnStop(msg *Msg, lightning *glightning.Lightning) error
 
-	// Call this method to make the status of the metrics persistent
+	// MakePersistent make the metric persistent
 	MakePersistent() error
 
-	// Method to store the run a callback to upload the content on the server.
-	// TODO: Use an interface to generalize the client, it can be also a rest api
-	// move accept some interface later.
+	// UploadOnRepo Commit the metric on remote server
 	UploadOnRepo(client *graphql.Client, lightning *glightning.Lightning) error
 
-	// Method to store the run a callback to init the content on the server
-	// the first time that the plugin in ran.
+	// InitOnRepo Init metric on the remote server.
 	InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error
 
-	// Call this method when you want update all the metrics without
-	// some particular event throw from c-lightning
+	// Update the metric with the last information of the node
 	Update(lightning *glightning.Lightning) error
 
-	// Class this method when you want catch some event from
-	// c-lightning and make some operation on the metrics data.
+	// UpdateWithMsg update the metric with the last information fo the node with some msg info
 	UpdateWithMsg(message *Msg, lightning *glightning.Lightning) error
 
-	// convert the object into a json
+	// ToJSON convert the object into a json
 	ToJSON() (string, error)
 
 	// Migrate to a new version of the metrics, some new version of the plugin
@@ -66,7 +61,7 @@ type Metric interface {
 	Migrate(payload map[string]interface{}) error
 }
 
-// Message struct to pass from the plugin to the metric
+// Msg Message struct to pass from the plugin to the metric
 type Msg struct {
 	// The message is from a command? if not it is nil
 	cmd string
