@@ -17,6 +17,8 @@ type cacheManager struct {
 	cache    map[string]*string
 }
 
+// GetInstance return the instance of the cache manager that it is
+// a singleton.
 func GetInstance() *cacheManager {
 	return &cacheManager{
 		prefix:   "cache",
@@ -74,6 +76,9 @@ func (instance *cacheManager) addToCache(key string) error {
 	return nil
 }
 
+// IsInCache check if the key is inside the cache and return the result
+// this not include side effect, so if any side effect happens, the function
+// always return false.
 func (instance *cacheManager) IsInCache(key string) bool {
 	if instance.cache != nil {
 		_, ok := instance.cache[key]
@@ -111,6 +116,16 @@ func (instance *cacheManager) PutToCache(key string, value interface{}) error {
 		return err
 	}
 	return instance.addToCache(key)
+}
+
+// PurgeFromCache delete the value from cache with the specified key
+// otherwise return an error.
+func (instance *cacheManager) PurgeFromCache(key string) error {
+	key = instance.buildID(key)
+	if err := db.GetInstance().DeleteValue(key); err != nil {
+		return err
+	}
+	return nil
 }
 
 // CleanCache clean the index from the database

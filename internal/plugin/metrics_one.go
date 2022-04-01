@@ -467,9 +467,7 @@ func (instance *MetricOne) MakePersistent() error {
 	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson)
 }
 
-// FIXME: the message is not useful, but we keep it only for future evolution
-// or we will remove it from here.
-func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) error {
+func (instance *MetricOne) OnStop(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	//TODO: Check if the values are empty, if yes, try a solution
 	// to avoid to push empty payload.
@@ -493,7 +491,10 @@ func (instance *MetricOne) OnClose(msg *Msg, lightning *glightning.Lightning) er
 	}
 	instance.UpTime = append(instance.UpTime, statusItem)
 	instance.lastCheck = now
-	return instance.MakePersistent()
+	if err := instance.MakePersistent(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ToJSON Convert the MetricOne structure to a JSON string.
@@ -589,7 +590,6 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 	}
 
 	if nodeInfo == nil {
-		// FIXME: we need some method to update the cache and prefilled at the startup.
 		node, err := lightning.GetNode(channelID)
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
@@ -935,7 +935,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 
 			switch forward.Status {
 			case "settled", "offered", "failed":
-				// do nothings
+				// do nothing
 				continue
 			case "local_failed":
 				// store the information about the failure
