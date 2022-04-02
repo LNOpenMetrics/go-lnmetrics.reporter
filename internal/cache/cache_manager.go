@@ -81,8 +81,7 @@ func (instance *cacheManager) addToCache(key string) error {
 // always return false.
 func (instance *cacheManager) IsInCache(key string) bool {
 	if instance.cache != nil {
-		_, ok := instance.cache[key]
-		if ok {
+		if _, ok := instance.cache[key]; ok {
 			return ok
 		}
 		// otherwise, continue and check with the database
@@ -90,7 +89,7 @@ func (instance *cacheManager) IsInCache(key string) bool {
 	key = instance.buildID(key)
 	_, err := db.GetInstance().GetValue(key)
 	if err != nil {
-		log.GetInstance().Errorf("Error inside the cache: %s", err)
+		log.GetInstance().Errorf("Error inside the cache with key %s: %s", key, err)
 		return false
 	}
 	return true

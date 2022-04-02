@@ -60,3 +60,35 @@ func (instance *MetricOneRpcMethod) Call() (jrpc2.Result, error) {
 
 	return nil, fmt.Errorf("We don't support the filter operation right now")
 }
+
+// ForceUpdateRPC enable the force update command
+type ForceUpdateRPC struct {
+	// the instance of the plugin
+	plugin *MetricsPlugin
+}
+
+func NewForceUpdateRPC(plugin *MetricsPlugin) *ForceUpdateRPC {
+	return &ForceUpdateRPC{plugin}
+}
+
+func (instance *ForceUpdateRPC) New() interface{} {
+	return instance
+}
+
+func (instance *ForceUpdateRPC) Name() string {
+	return "lnmetrics-force-update"
+}
+
+func (instance *ForceUpdateRPC) Call() (jrpc2.Result, error) {
+	for _, metric := range instance.plugin.Metrics {
+		msg := Msg{
+			cmd:    "plugin_rpc_method",
+			params: map[string]interface{}{"event": "on_force_update"},
+		}
+		instance.plugin.callUpdateOnMetric(metric, &msg)
+	}
+	response := struct {
+		result string
+	}{result: "force call update on all the metrics succeeded"}
+	return response, nil
+}

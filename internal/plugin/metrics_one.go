@@ -455,7 +455,19 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 
 func (instance *MetricOne) UpdateWithMsg(message *Msg,
 	lightning *glightning.Lightning) error {
-	return fmt.Errorf("method not supported")
+	if event, ok := message.params["event"]; ok {
+		status, err := instance.onEvent(fmt.Sprintf("%s", event), lightning)
+		if err != nil {
+			return err
+		}
+		instance.UpTime = append(instance.UpTime, status)
+		instance.lastCheck = time.Now().Unix()
+		if status.Timestamp > 0 {
+			instance.lastCheck = status.Timestamp
+		}
+		return instance.MakePersistent()
+	}
+	return nil
 }
 
 func (instance *MetricOne) MakePersistent() error {
@@ -569,34 +581,36 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 	instance.UpTime = make([]*status, 0)
 	instance.ChannelsInfo = make(map[string]*statusChannel)
 
-	// Refactored this method in a utils functions
+	// Refactored this method in an utils functions
 	t := time.Now()
 	log.GetInstance().Info(fmt.Sprintf("Metric One Upload at %s", t.Format(time.RFC850)))
 	return nil
 }
 
+// checkChannelInCache check if a node with channel_id is inside the gossip map or in the cache
 func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, channelID string) (*cache.NodeInfoCache, error) {
-	var nodeInfo *cache.NodeInfoCache
+	var nodeInfo cache.NodeInfoCache
+	inCache := false
 	if cache.GetInstance().IsInCache(channelID) {
 		bytes, err := cache.GetInstance().GetFromCache(channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error %s:", err)
 			return nil, err
 		}
-		if err := json.Unmarshal(bytes, nodeInfo); err != nil {
+		if err := json.Unmarshal(bytes, &nodeInfo); err != nil {
 			log.GetInstance().Errorf("Error %s", err)
 			return nil, err
 		}
+		inCache = true
 	}
 
-	if nodeInfo == nil {
+	if !inCache {
 		node, err := lightning.GetNode(channelID)
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
-			// We admit this error, a node can be forgotten by the gossip if it is offline for long time.
 			return nil, err
 		}
-		nodeInfo = &cache.NodeInfoCache{
+		nodeInfo = cache.NodeInfoCache{
 			ID:       node.Id,
 			Alias:    node.Alias,
 			Color:    node.Color,
@@ -606,10 +620,10 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 			log.GetInstance().Errorf("%s", err)
 		}
 	}
-	return nodeInfo, nil
+	return &nodeInfo, nil
 }
 
-// Make a summary of all the channels information that the node have a channels with.
+// makeChannelsSummary Make a summary of all the channels information that the node have a channels with.
 func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
 	channelsSummary := &ChannelsSummary{
 		TotChannels: 0,
@@ -619,7 +633,6 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 	if len(channels) > 0 {
 		summary := make([]*ChannelSummary, 0)
 		for _, channel := range channels {
-
 			if channel.State == "ONCHAIN" {
 				// When the channel is on chain, it is not longer a channel,
 				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
@@ -635,6 +648,8 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 
 			nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
 			if err != nil {
+				// the node is not in the cache and in the gossip map
+				// skip this should be fine too
 				continue
 			}
 			channelsSummary.TotChannels++
@@ -672,7 +687,6 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel, event string) error {
 	cache := make(map[string]bool)
 	for _, channel := range channels {
-
 		switch channel.State {
 		// state of a channel where there is any type of communication yet
 		// we skip this type of state
@@ -956,6 +970,9 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 
 //FIXME put inside the utils functions
 func getMSatValue(msatStr string) int64 {
+	if !strings.Contains(msatStr, "msat") {
+		return -1
+	}
 	msatTokens := strings.Split(msatStr, "msat")
 	if len(msatTokens) == 0 {
 		return -1
