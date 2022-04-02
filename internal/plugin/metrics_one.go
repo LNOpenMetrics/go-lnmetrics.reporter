@@ -576,27 +576,29 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 }
 
 func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, channelID string) (*cache.NodeInfoCache, error) {
-	var nodeInfo *cache.NodeInfoCache
+	var nodeInfo cache.NodeInfoCache
+	inCache := false
 	if cache.GetInstance().IsInCache(channelID) {
 		bytes, err := cache.GetInstance().GetFromCache(channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error %s:", err)
 			return nil, err
 		}
-		if err := json.Unmarshal(bytes, nodeInfo); err != nil {
+		if err := json.Unmarshal(bytes, &nodeInfo); err != nil {
 			log.GetInstance().Errorf("Error %s", err)
 			return nil, err
 		}
+		inCache = true
 	}
 
-	if nodeInfo == nil {
+	if !inCache {
 		node, err := lightning.GetNode(channelID)
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
 			// We admit this error, a node can be forgotten by the gossip if it is offline for long time.
 			return nil, err
 		}
-		nodeInfo = &cache.NodeInfoCache{
+		nodeInfo = cache.NodeInfoCache{
 			ID:       node.Id,
 			Alias:    node.Alias,
 			Color:    node.Color,
@@ -606,7 +608,7 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 			log.GetInstance().Errorf("%s", err)
 		}
 	}
-	return nodeInfo, nil
+	return &nodeInfo, nil
 }
 
 // Make a summary of all the channels information that the node have a channels with.
@@ -635,7 +637,9 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 
 			nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
 			if err != nil {
-				continue
+				// THIS should never happen, because can corrupt
+				// the metrics
+				return nil, err
 			}
 			channelsSummary.TotChannels++
 			channelSummary.Alias = nodeInfo.Alias
