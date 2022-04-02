@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	cron "github.com/robfig/cron/v3"
 	"github.com/vincenzopalazzo/glightning/glightning"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
@@ -75,17 +75,24 @@ func (plugin *MetricsPlugin) RegisterMethods() error {
 	if err := plugin.Plugin.RegisterMethod(cacheRPCMethod); err != nil {
 		return err
 	}
+
+	forceUpdate := NewForceUpdateRPC(plugin)
+	forceUpdateRPC := glightning.NewRpcMethod(forceUpdate, "call the update on all the plugin")
+	forceUpdateRPC.Category = "lnmetrics"
+	if err := plugin.Plugin.RegisterMethod(forceUpdateRPC); err != nil {
+		return err
+	}
 	return nil
 }
 
 //nolint
 func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during update metrics event: %s", err))
+		log.GetInstance().Errorf("Error during update metrics event: %s", err)
 	}
 }
 
-// Call on stop operation on the node when the caller are shoutdown it self.
+// callOnStopOnMetrics Call on stop operation on the node when the caller are shutdown itself.
 func (plugin *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 	err := metric.OnStop(msg, plugin.Rpc)
 	if err != nil {
@@ -93,7 +100,7 @@ func (plugin *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 	}
 }
 
-// Update the metrics without any information received by the caller
+// callUpdateOnMetricNoMsg Update the metrics without any information received by the caller
 func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	log.GetInstance().Debug("Calling Update on metrics")
 	err := metric.Update(plugin.Rpc)
@@ -110,7 +117,7 @@ func (plugin *MetricsPlugin) updateAndUploadMetric(metric Metric) {
 	}
 }
 
-// Register internal recurrent methods
+// RegisterRecurrentEvt Register internal recurrent methods
 func (plugin *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	log.GetInstance().Info(fmt.Sprintf("Register recurrent event each %s", after))
 	plugin.Cron = cron.New()
