@@ -27,7 +27,7 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 	switch command.MethodName {
 	case "stop":
 		// Share to all the metrics, so we need a global method that iterate over the metrics map
-		params := make(map[string]interface{})
+		params := make(map[string]any)
 		params["timestamp"] = time.Now()
 		msg := Msg{"stop", params}
 		for _, metric := range plugin.Metrics {

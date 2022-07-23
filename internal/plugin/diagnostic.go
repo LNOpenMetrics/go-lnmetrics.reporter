@@ -27,7 +27,7 @@ func NewMetricPlugin(plugin *MetricsPlugin) *MetricOneRpcMethod {
 	}
 }
 
-func (instance *MetricOneRpcMethod) New() interface{} {
+func (instance *MetricOneRpcMethod) New() any {
 	return NewMetricPlugin(instance.plugin)
 }
 
@@ -71,7 +71,7 @@ func NewForceUpdateRPC(plugin *MetricsPlugin) *ForceUpdateRPC {
 	return &ForceUpdateRPC{plugin}
 }
 
-func (instance *ForceUpdateRPC) New() interface{} {
+func (instance *ForceUpdateRPC) New() any {
 	return instance
 }
 
@@ -83,7 +83,7 @@ func (instance *ForceUpdateRPC) Call() (jrpc2.Result, error) {
 	for _, metric := range instance.plugin.Metrics {
 		msg := Msg{
 			cmd:    "plugin_rpc_method",
-			params: map[string]interface{}{"event": "on_force_update"},
+			params: map[string]any{"event": "on_force_update"},
 		}
 		instance.plugin.callUpdateOnMetric(metric, &msg)
 	}

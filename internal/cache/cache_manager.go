@@ -105,7 +105,7 @@ func (instance *cacheManager) GetFromCache(key string) ([]byte, error) {
 }
 
 // PutToCache put the value in the json form inside the cache with the key specified
-func (instance *cacheManager) PutToCache(key string, value interface{}) error {
+func (instance *cacheManager) PutToCache(key string, value any) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
 		return err

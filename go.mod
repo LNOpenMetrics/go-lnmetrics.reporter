@@ -1,6 +1,6 @@
 module github.com/LNOpenMetrics/go-lnmetrics.reporter
 
-go 1.17
+go 1.18
 
 require (
 	github.com/LNOpenMetrics/lnmetrics.utils v0.0.7

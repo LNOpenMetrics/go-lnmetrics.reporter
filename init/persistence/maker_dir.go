@@ -29,7 +29,7 @@ func PrepareHomeDirectory(lightningPath string) (*string, error) {
 		return &path, nil
 
 	default:
-		return nil, errors.New("This is a file")
+		return nil, errors.New("this is a file")
 	}
 
 }
