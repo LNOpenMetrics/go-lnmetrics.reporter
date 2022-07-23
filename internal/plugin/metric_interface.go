@@ -58,7 +58,7 @@ type Metric interface {
 	// Migrate to a new version of the metrics, some new version of the plugin
 	// ca contains some format change and for this reason, this method help
 	// to migrate the old version to a new version.
-	Migrate(payload map[string]interface{}) error
+	Migrate(payload map[string]any) error
 }
 
 // Msg Message struct to pass from the plugin to the metric
@@ -66,5 +66,5 @@ type Msg struct {
 	// The message is from a command? if not it is nil
 	cmd string
 	// the map of parameter that the plugin need to feel.
-	params map[string]interface{}
+	params map[string]any
 }

@@ -15,16 +15,16 @@ import (
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
-// Partial Wrapper around graphql error response
+// GraphQLError Partial Wrapper around graphql error response
 // FIXME: adding support for the path filed
 type GraphQLError struct {
 	Message string `json:"message"`
 }
 
-// GraphQL Response wrapper
+// GraphQLResponse GraphQL Response wrapper
 type GraphQLResponse struct {
-	Data   *map[string]interface{} `json:"data"`
-	Errors []*GraphQLError         `json:"errors"`
+	Data   *map[string]any `json:"data"`
+	Errors []*GraphQLError `json:"errors"`
 }
 
 type Client struct {
@@ -80,7 +80,7 @@ func isOnionUrl(url string) bool {
 	return strings.HasPrefix(url, ".onion")
 }
 
-// Make Request is the method to make the http request
+// MakeRequest Make Request is the method to make the http request
 func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse, error) {
 	jsonValue, err := json.Marshal(query)
 	if err != nil {
@@ -151,7 +151,7 @@ func (instance *Client) cleanBody(payload *string) *string {
 	return &replace
 }
 
-// TODO: adding variables to give more flexibility
+// MakeQuery TODO: adding variables to give more flexibility
 func (instance *Client) MakeQuery(payload string) map[string]string {
 	return map[string]string{"query": payload}
 }
@@ -169,7 +169,7 @@ func (instance *Client) InitMetric(nodeID string, body *string, signature string
 	return err
 }
 
-// Utils Function to update the with the last data the metrics on server..
+// UploadMetric Utils Function to update the with the last data the metrics on server..
 func (instance *Client) UploadMetric(nodeID string, body *string, signature string) error {
 	log.GetInstance().Info("Call updateMetricOne")
 	cleanBody := instance.cleanBody(body)
@@ -181,7 +181,7 @@ func (instance *Client) UploadMetric(nodeID string, body *string, signature stri
 	return err
 }
 
-// Utils function that call the GraphQL server to get the metrics about the channel
+// GetMetricOneByNodeID Utils function that call the GraphQL server to get the metrics about the channel
 func (instance *Client) GetMetricOneByNodeID(nodeID string, startPeriod int, endPeriod int) error {
 	log.GetInstance().Info("Calling Get Metric One by nodeID")
 	payload := fmt.Sprintf(`query {
@@ -203,7 +203,7 @@ func (instance *Client) GetMetricOneByNodeID(nodeID string, startPeriod int, end
 	return err
 }
 
-// Utils function to the the node information from the repository
+// GetNodeMetadata Utils function to the the node information from the repository
 func (instance *Client) GetNodeMetadata(nodeID string, network string) error {
 	log.GetInstance().Info("Call Get node metadata")
 	payload := fmt.Sprintf(`query {

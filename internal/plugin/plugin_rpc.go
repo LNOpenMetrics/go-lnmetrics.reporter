@@ -36,7 +36,7 @@ func (instance PluginRpcMethod) Name() string {
 	return "lnmetrics-info"
 }
 
-func (instance *PluginRpcMethod) New() interface{} {
+func (instance *PluginRpcMethod) New() any {
 	return instance
 }
 
@@ -67,7 +67,7 @@ func NewCleanCacheRPC(plugin *MetricsPlugin) *CleanCacheRPC {
 	return &CleanCacheRPC{}
 }
 
-func (instance *CleanCacheRPC) New() interface{} {
+func (instance *CleanCacheRPC) New() any {
 	return instance
 }
 
