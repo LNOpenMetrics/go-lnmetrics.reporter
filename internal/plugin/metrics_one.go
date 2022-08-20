@@ -605,6 +605,11 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	}
 
 	for _, subChannel := range subChannels {
+		// The private channel do not need to be included inside the metrics
+		// FIXME: when we will be able to have also a offline mode
+		if !subChannel.IsPublic {
+			continue
+		}
 		nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
 		if err != nil {
 			continue
