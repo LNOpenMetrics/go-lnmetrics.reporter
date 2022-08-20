@@ -1,3 +1,9 @@
+# v0.0.5-rc2
+
+## Fixed
+- be nicer with a node by ping it only one time ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/9231650b4575b8c39a3fef96931bf1def92680df)). @vincenzopalazzo 19-08-2022
+
+
 # v0.0.5-rc1
 
 ## Added
