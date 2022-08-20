@@ -153,7 +153,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	instance.NodeAlias = getInfo.Alias
 	instance.Network = getInfo.Network
 	instance.NodeInfo = &NodeInfo{
-		Implementation: "c-lightning", // It is easy, it is coupled with c-lightning plugin now
+		Implementation: "cln", // It is easy, it is coupled with c-lightning plugin now
 		Version:        getInfo.Version,
 	}
 	status, err := instance.onEvent("on_start", lightning)
@@ -426,6 +426,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 // private method of the module
 func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel, event string) error {
 	cache := make(map[string]bool)
+	cachePing := make(map[string]int64)
 	for _, channel := range channels {
 		switch channel.State {
 		// state of a channel where there is any type of communication yet
@@ -434,7 +435,7 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 			"DUALOPEND_AWAITING_LOCKIN":
 			continue
 		default:
-			if err := instance.collectInfoChannel(lightning, channel, event); err != nil {
+			if err := instance.collectInfoChannel(lightning, channel, event, cachePing); err != nil {
 				// void returning error here? We can continue to make the analysis over the channels
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				return err
@@ -472,10 +473,8 @@ func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning,
 	channels, err := lightning.GetChannel(channelID)
 
 	if err != nil {
-		// This should happen when a channel is no longer inside the gossip
-		// map.
+		// This should happen when a channel is no longer inside the gossip map.
 		log.GetInstance().Errorf("Error: %s", err)
-		directions = append(directions, "UNKNOWN")
 		return directions, nil
 	}
 
@@ -491,13 +490,18 @@ func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning,
 }
 
 func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
-	channel *glightning.FundingChannel, event string) error {
+	channel *glightning.FundingChannel, event string, cachePing map[string]int64) error {
 
 	shortChannelId := channel.ShortChannelId
-	var timestamp int64 = 0
-	// avoid to store the wrong data related to the gossip delay.
-	if instance.pingNode(lightning, channel.Id) {
-		timestamp = time.Now().Unix()
+	timestamp, found := cachePing[channel.Id]
+	// be nicer with the node and do not stress too much by pinging the node too much!
+	if !found {
+		timestamp = 0
+		// avoid storing the wrong data related to the gossip delay.
+		if instance.pingNode(lightning, channel.Id) {
+			timestamp = time.Now().Unix()
+		}
+		cachePing[channel.Id] = timestamp
 	}
 
 	directions, err := instance.getChannelDirections(lightning, shortChannelId)
@@ -562,7 +566,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 
 func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId string) bool {
 	if _, err := lightning.Ping(nodeId); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during pinging node %s: %s", nodeId, err))
+		log.GetInstance().Error(fmt.Sprintf("Error during ping node %s: %s", nodeId, err))
 		return false
 	}
 	return true
