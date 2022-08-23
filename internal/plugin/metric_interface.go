@@ -14,7 +14,6 @@ var MetricsSupported map[int]string
 
 // 0 = outcoming
 // 1 = incoming
-// 2 = mutual.
 var ChannelDirections map[int]string
 
 func init() {
