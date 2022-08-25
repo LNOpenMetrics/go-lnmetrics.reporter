@@ -108,7 +108,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 		// We admit this error here, we print only some log information.
 		// In the call that cause this error we make a call to getListNodes, but
-		// the node with that we have the channels with can be offiline for a while
+		// the node with that we have the channels with can be offline for a while
 		// and this mean that can be out of the gossip map.
 	}
 
@@ -120,7 +120,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 
 	nodeLimits := &ChannelLimits{
 		Min: int64(listConfig["min-capacity-sat"].(float64)),
-		Max: 0, // TODO: Where is it the max? there is no max so I can put 0 here?
+		Max: 0, // FIXME: Where is it the max? there is no max so I can put 0 here?
 	}
 
 	nodeFee := &ChannelFee{
@@ -221,8 +221,7 @@ func (instance *MetricOne) MakePersistent() error {
 
 func (instance *MetricOne) OnStop(msg *Msg, lightning *glightning.Lightning) error {
 	log.GetInstance().Debug("On close event on metrics called")
-	//TODO: Check if the values are empty, if yes, try a solution
-	// to avoid to push empty payload.
+	// FIXME: Check if the values are empty, if yes, try a solution  to avoid to push empty payload.
 	var lastMetric MetricOne
 	jsonLast, err := instance.Storage.LoadLastMetricOne()
 	if err != nil {
@@ -637,6 +636,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			channelInfo.Direction = ChannelDirections[0]
 		} else if subChannel.Source == "" {
 			channelInfo.Direction = "UNKNOWN"
+			log.GetInstance().Debugf("channel direction not known of node %s", channelInfo.NodeId)
 		}
 
 		if err != nil {
@@ -645,7 +645,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 				channelInfo.Alias = prevInstance.NodeAlias
 				channelInfo.Color = prevInstance.Color
 			}
-			// We avoid to return the error because it is correct that the node
+			// We avoid returning the error because it is correct that the node
 			// it is not up and running, this means that it is fine admit an
 			// error here.i
 			result[channelInfo.Direction] = channelInfo
@@ -673,29 +673,35 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 
 			// by default we assume that the payment has a out direction
 			paymentInfo := &PaymentInfo{
-				Direction: ChannelDirections[1],
+				// The forwarding is coming to us
+				Direction: ChannelDirections[0],
 				Status:    forward.Status,
 				Timestamp: utime.FromDecimalUnix(forward.ReceivedTime),
 			}
 
-			// if we have the forward payment is inside the our direction
-			// we change the direction from out to in.
+			// if our channel is where the payment is trying to go
+			// we change the direction from OUTCOMING to INCOOMING
 			if channel.ShortChannelId == forward.OutChannel {
-				paymentInfo.Direction = ChannelDirections[0]
+				paymentInfo.Direction = ChannelDirections[1]
 			}
 
-			// TODO: we are assuming that from a in channel we can receive
-			// only in forward payment, and from outcoming payment we can forward
-			// only if the channel is in outcoming state
-			//
-			// is correct the intuition?
+			/// if the direction is valid and if the direction
+			// is different from the channel direction we skip this
+			// forwarding from the counting
 			if channelInfo.Direction != "UNKNOWN" &&
 				paymentInfo.Direction != channelInfo.Direction {
+				log.GetInstance().Infof("New forwarding found but in the wrong direction, %s -> %s", forward.InChannel, forward.OutChannel)
+				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+				log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 				continue
 			}
+			log.GetInstance().Infof("New forwarding found but in the correct direction, %s -> %s", forward.InChannel, forward.OutChannel)
+			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+			log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 
 			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
 
+			// add the failure regarding the local failure
 			switch forward.Status {
 			case "settled", "offered", "failed":
 				// do nothing
@@ -709,7 +715,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 				paymentInfo.FailureReason = forward.FailReason
 				paymentInfo.FailureCode = forward.FailCode
 			default:
-				return nil, fmt.Errorf("Status %s unexpected", forward.Status)
+				return nil, fmt.Errorf("status %s unexpected", forward.Status)
 			}
 		}
 		result[channelInfo.Direction] = channelInfo
@@ -717,7 +723,8 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	return result, nil
 }
 
-//FIXME put inside the utils functions
+// FIXME put inside the utils functions
+// FIXME: this will be broken in 6 month from August 20th.
 func getMSatValue(msatStr string) int64 {
 	if !strings.Contains(msatStr, "msat") {
 		return -1
