@@ -690,8 +690,14 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			// forwarding from the counting
 			if channelInfo.Direction != "UNKNOWN" &&
 				paymentInfo.Direction != channelInfo.Direction {
+				log.GetInstance().Infof("New forwarding found but in the wrong direction, %s -> %s", forward.InChannel, forward.OutChannel)
+				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+				log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 				continue
 			}
+			log.GetInstance().Infof("New forwarding found but in the correct direction, %s -> %s", forward.InChannel, forward.OutChannel)
+			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+			log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 
 			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
 
