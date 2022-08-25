@@ -1,3 +1,9 @@
+# v0.0.5-rc3
+
+## Fixed
+- forward payment direction ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/11ffa17f964ee7accb6fe7736973a9886c7b2e4c)). @vincenzopalazzo 23-08-2022
+
+
 # v0.0.5-rc2
 
 ## Fixed
