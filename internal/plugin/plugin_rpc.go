@@ -48,7 +48,7 @@ func (instance *PluginRpcMethod) Call() (jrpc2.Result, error) {
 	goInfo := sysinfo.Go()
 	return info{
 		Name:         "go-lnmetrics.reporter",
-		Version:      "v0.0.5-rc1",
+		Version:      "v0.0.5-rc3",
 		LangVersion:  goInfo.Version,
 		Architecture: goInfo.Arch,
 		MaxProcs:     goInfo.MaxProcs,

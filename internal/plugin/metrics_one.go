@@ -346,7 +346,7 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 	if !inCache {
 		node, err := lightning.GetNode(channelID)
 		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
+			log.GetInstance().Errorf("Error in command listNodes in makeChannelsSummary: %s", err)
 			return nil, err
 		}
 		nodeInfo = cache.NodeInfoCache{
@@ -455,7 +455,7 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	// channels in the metrics plugin
 	// this is useful to remove the metrics over closed channels
 	// in the metrics one we are not interested to have a story of
-	// of the old channels (for the moments).
+	//  the old channels (for the moments).
 	for key := range instance.ChannelsInfo {
 		_, found := cache[key]
 		if !found {
@@ -515,7 +515,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 
 		infoMap, err := instance.getChannelInfo(lightning, channel, infoChannel)
 		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
+			log.GetInstance().Errorf("Error during get the information about the channel: %s", err)
 			return err
 		}
 
@@ -565,7 +565,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 
 func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId string) bool {
 	if _, err := lightning.Ping(nodeId); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during ping node %s: %s", nodeId, err))
+		log.GetInstance().Errorf("Error during ping node %s: %s", nodeId, err)
 		return false
 	}
 	return true
@@ -585,10 +585,10 @@ func NewUnknownChannel() *glightning.Channel {
 //
 // lightning: Is the Go API for c-lightning
 // channel: Contains the channels information of the command listfunds returned by c-lightning
-// prevInstance: the previous instance of the channel info stored inside the map, if exist.
+// prevInstance: the previous instance of the channel info stored inside the map, if existed.
 //
 // as return:
-// map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is splitted.
+// map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is split.
 // error: If any error during this operation occurs
 func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 	channel *glightning.FundingChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
@@ -671,7 +671,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 				continue
 			}
 
-			// by default we assume that the payment has a out direction
+			// by default, we assume that the payment has an out direction
 			paymentInfo := &PaymentInfo{
 				// The forwarding is coming to us
 				Direction: ChannelDirections[0],
@@ -699,8 +699,6 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
 			log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 
-			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
-
 			// add the failure regarding the local failure
 			switch forward.Status {
 			case "settled", "offered", "failed":
@@ -708,15 +706,15 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 				continue
 			case "local_failed":
 				// store the information about the failure
-				if len(channelInfo.Forwards) == 0 {
-					continue
+				if len(channelInfo.Forwards) != 0 {
+					paymentInfo.FailureReason = forward.FailReason
+					paymentInfo.FailureCode = forward.FailCode
 				}
-				paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
-				paymentInfo.FailureReason = forward.FailReason
-				paymentInfo.FailureCode = forward.FailCode
 			default:
+				log.GetInstance().Errorf("status %s unexpected", forward.Status)
 				return nil, fmt.Errorf("status %s unexpected", forward.Status)
 			}
+			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
 		}
 		result[channelInfo.Direction] = channelInfo
 	}

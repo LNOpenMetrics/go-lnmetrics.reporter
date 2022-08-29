@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	cron "github.com/robfig/cron/v3"
@@ -22,7 +23,8 @@ type MetricsPlugin struct {
 	WithProxy bool
 }
 
-func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
+// FIXME: switch to the shutdown notification
+func (plugin *MetricsPlugin) HandlerRPMMessage(event *glightning.RpcCommandEvent) error {
 	command := event.Cmd
 	switch command.MethodName {
 	case "stop":
@@ -82,10 +84,25 @@ func (plugin *MetricsPlugin) RegisterMethods() error {
 	if err := plugin.Plugin.RegisterMethod(forceUpdateRPC); err != nil {
 		return err
 	}
+
+	if os.Getenv("DEVELOPER") != "" {
+		return plugin.registerDevRpcCommands()
+	}
+
 	return nil
 }
 
-//nolint
+func (plugin *MetricsPlugin) registerDevRpcCommands() error {
+	devUpload := NewPluginDev(plugin)
+	defUpdateRPC := glightning.NewRpcMethod(devUpload, "dev command to upload the a dev metrics specified by the user")
+	defUpdateRPC.Category = "lnmetrics"
+	if err := plugin.Plugin.RegisterMethod(defUpdateRPC); err != nil {
+		return err
+	}
+	return nil
+}
+
+// nolint
 func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
 		log.GetInstance().Errorf("Error during update metrics event: %s", err)

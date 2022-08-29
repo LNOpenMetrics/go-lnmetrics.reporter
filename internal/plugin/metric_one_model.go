@@ -60,7 +60,7 @@ type status struct {
 	Timestamp int64 `json:"timestamp"`
 	// Node fee settings
 	Fee *ChannelFee `json:"fee"`
-	// Node htlc limits informations
+	// Node htlc limits information
 	Limits *ChannelLimits `json:"limits"`
 }
 
@@ -185,8 +185,7 @@ type MetricOne struct {
 	// array of the up_time
 	UpTime []*status `json:"up_time"`
 
-	// map of informaton of channel information
-	// TODO: managing the dualfunding channels
+	// map of information of channel information
 	ChannelsInfo map[string]*statusChannel `json:"-"`
 
 	// Last check of the plugin, useful to store the data
@@ -203,7 +202,7 @@ func (instance MetricOne) MarshalJSON() ([]byte, error) {
 	// as MetricOne but none of its methods (this avoids recursive
 	// calls to MarshalJSON).
 	//
-	// Also because M and MetricOne have the same structure you can
+	// Also, because M and MetricOne have the same structure you can
 	// easily convert between those two. e.g. M(MetricOne{}) and
 	// MetricOne(M{}) are valid expressions.
 	type M MetricOne
