@@ -198,7 +198,7 @@ type MetricOne struct {
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
 
-	PeerSnapshot map[string]*glightning.Peer
+	PeerSnapshot map[string]*glightning.Peer `json:"-"`
 }
 
 func (instance MetricOne) MarshalJSON() ([]byte, error) {
