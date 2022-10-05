@@ -85,7 +85,7 @@ func (plugin *MetricsPlugin) RegisterMethods() error {
 	return nil
 }
 
-//nolint
+// nolint
 func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
 		log.GetInstance().Errorf("Error during update metrics event: %s", err)

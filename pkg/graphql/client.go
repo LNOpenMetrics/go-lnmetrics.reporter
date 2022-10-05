@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/net/proxy"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -121,7 +121,7 @@ func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 			}
 		}()
-		result, err := ioutil.ReadAll(response.Body)
+		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			failure++
 			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
