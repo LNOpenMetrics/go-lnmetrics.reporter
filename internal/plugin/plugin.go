@@ -5,6 +5,7 @@ import (
 	"time"
 
 	cron "github.com/robfig/cron/v3"
+	cln4go "github.com/vincenzopalazzo/cln4go/client"
 	"github.com/vincenzopalazzo/glightning/glightning"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
@@ -12,17 +13,52 @@ import (
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
+// FIXME: move this to a generics to set the Client
+// in this way we could support different implementation
 type MetricsPlugin struct {
 	Plugin    *glightning.Plugin
 	Metrics   map[int]Metric
-	Rpc       *glightning.Lightning
+	Rpc       *cln4go.UnixRPC
 	Cron      *cron.Cron
 	Server    *graphql.Client
 	Storage   db.PluginDatabase
 	WithProxy bool
 }
 
-func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent) error {
+func (self *MetricsPlugin) GetRpc() *cln4go.UnixRPC {
+	return self.Rpc
+}
+
+func (self *MetricsPlugin) NewClient(path string) {
+	self.Rpc, _ = cln4go.NewUnix(path)
+}
+
+func (self *MetricsPlugin) SetStorage(storage db.PluginDatabase) {
+	self.Storage = storage
+}
+
+func (self *MetricsPlugin) GetStorage() db.PluginDatabase {
+	return self.Storage
+}
+
+func (self *MetricsPlugin) SetProxy(withProxy bool) {
+	self.WithProxy = withProxy
+}
+
+func (self *MetricsPlugin) IsWithProxy() bool {
+	return self.WithProxy
+}
+
+func (self *MetricsPlugin) SetServer(server *graphql.Client) {
+	self.Server = server
+}
+
+func (self *MetricsPlugin) GetServer() *graphql.Client {
+	return self.Server
+}
+
+// FIXME: switch to the shutdown notification
+func (plugin *MetricsPlugin) HandlerRPMMessage(event *glightning.RpcCommandEvent) error {
 	command := event.Cmd
 	switch command.MethodName {
 	case "stop":
@@ -44,7 +80,7 @@ func (plugin *MetricsPlugin) HendlerRPCMessage(event *glightning.RpcCommandEvent
 func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
-		log.GetInstance().Error(fmt.Sprintf("Metrics with is %d already registered.", id))
+		log.GetInstance().Errorf("Metrics with is %d already registered.", id)
 		return fmt.Errorf("Metrics with is %d already registered.", id)
 	}
 	plugin.Metrics[id] = metric
@@ -94,7 +130,7 @@ func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 
 // callOnStopOnMetrics Call on stop operation on the node when the caller are shutdown itself.
 func (plugin *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
-	err := metric.OnStop(msg, plugin.Rpc)
+	err := metric.OnStop(msg, plugin.GetRpc())
 	if err != nil {
 		log.GetInstance().Error(err)
 	}
@@ -103,7 +139,7 @@ func (plugin *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
 // callUpdateOnMetricNoMsg Update the metrics without any information received by the caller
 func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	log.GetInstance().Debug("Calling Update on metrics")
-	err := metric.Update(plugin.Rpc)
+	err := metric.Update(plugin.GetRpc())
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
@@ -112,7 +148,7 @@ func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 func (plugin *MetricsPlugin) updateAndUploadMetric(metric Metric) {
 	log.GetInstance().Info("Calling update and upload metric")
 	plugin.callUpdateOnMetricNoMsg(metric)
-	if err := metric.UploadOnRepo(plugin.Server, plugin.Rpc); err != nil {
+	if err := metric.UploadOnRepo(plugin.Server, plugin.GetRpc()); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
 	}
 }
@@ -145,13 +181,13 @@ func (plugin *MetricsPlugin) RegisterOneTimeEvt(after string) {
 		// TODO: Should C-Lightning send a on init event like notification?
 		for _, metric := range plugin.Metrics {
 			go func(instance *MetricsPlugin, metric Metric) {
-				err := metric.OnInit(instance.Rpc)
+				err := metric.OnInit(instance.GetRpc())
 				if err != nil {
 					log.GetInstance().Error(fmt.Sprintf("Error during on init call: %s", err))
 				}
 
 				// Init on server.
-				if err := metric.InitOnRepo(instance.Server, instance.Rpc); err != nil {
+				if err := metric.InitOnRepo(instance.Server, instance.GetRpc()); err != nil {
 					log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				}
 
