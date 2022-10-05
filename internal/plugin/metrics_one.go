@@ -12,6 +12,7 @@ import (
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/ln"
 
 	"github.com/LNOpenMetrics/lnmetrics.utils/hash/sha256"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
@@ -104,8 +105,8 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 	if err := instance.snapshotListPeers(lightning); err != nil {
 		return nil, err
 	}
+	listFunds, err := ln.ListFunds(lightning)
 
-	listFunds, err := lightning.ListFunds()
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
@@ -115,7 +116,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 		// We admit this error here, we print only some log information.
 	}
 
-	listForwards, err := lightning.ListForwards()
+	listForwards, err := ln.ListForwards(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
@@ -135,7 +136,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 		// and this mean that can be out of the gossip map.
 	}
 
-	listConfig, err := lightning.ListConfigs()
+	listConfig, err := ln.ListConfig(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error during the list config rpc command: %s", err)
 		return nil, err
@@ -165,7 +166,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 
 // OnInit One time callback called from the lightning implementation
 func (instance *MetricOne) OnInit(lightning cln4go.Client) error {
-	getInfo, err := lightning.GetInfo()
+	getInfo, err := ln.GetInfo(lightning)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
 		return err
@@ -303,8 +304,8 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.C
 		}
 
 		toSign := sha256.SHA256(&payload)
-		log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
-		signPayload, err := lightning.SignMessage(toSign)
+		log.GetInstance().Infof("Hash of the paylad: %s", toSign)
+		signPayload, err := ln.SignMessage(lightning, &toSign)
 		if err != nil {
 			return err
 		}
@@ -329,8 +330,8 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go
 		return err
 	}
 	toSign := sha256.SHA256(&payload)
-	log.GetInstance().Infof("Hash of the paylad: %s", toSign)
-	signPayload, err := lightning.SignMessage(toSign)
+	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+	signPayload, err := ln.SignMessage(lightning, &toSign)
 	if err != nil {
 		return err
 	}
@@ -366,7 +367,7 @@ func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelI
 	}
 
 	if !inCache {
-		node, err := lightning.GetNode(channelID)
+		node, err := ln.GetNode(lightning, &channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error in command listNodes in makeChannelsSummary: %s", err)
 			return nil, err
@@ -491,7 +492,7 @@ func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels
 func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channelID string) ([]string, error) {
 	directions := make([]string, 0)
 
-	channels, err := lightning.GetChannel(channelID)
+	channels, err := ln.ListChannels(lightning, &channelID)
 
 	if err != nil {
 		// This should happen when a channel is no longer inside the gossip map.
@@ -585,7 +586,7 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 	return nil
 }
 
-func (instance *MetricOne) peerConnected(lightning *glightning.Lightning, nodeId string) bool {
+func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string) bool {
 	peer, found := instance.PeerSnapshot[nodeId]
 	if !found {
 		log.GetInstance().Infof("peer with node id %s not found", nodeId)
@@ -618,7 +619,7 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 
 	result := make(map[string]*ChannelInfo)
 
-	subChannels, err := lightning.GetChannel(channel.ShortChannelId)
+	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
 
 	// This error should never happen
 	if err != nil {
@@ -678,7 +679,7 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 		channelInfo.Alias = nodeInfo.Alias
 		channelInfo.Color = nodeInfo.Color
 
-		listForwards, err := lightning.ListForwards()
+		listForwards, err := ln.ListForwards(lightning)
 
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error during the listForwards call: %s", err))
