@@ -18,7 +18,7 @@ import (
 	"github.com/LNOpenMetrics/lnmetrics.utils/utime"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
-	"github.com/vincenzopalazzo/glightning/glightning"
+	cln4go "github.com/vincenzopalazzo/cln4go/client"
 )
 
 // NewMetricOne This method is required by the interface
@@ -100,10 +100,11 @@ func (instance *MetricOne) snapshotListPeers(lightning *glightning.Lightning) er
 }
 
 // Generic Plugin callback that it is run each time that the plugin need to recording a new event.
-func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
+func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*status, error) {
 	if err := instance.snapshotListPeers(lightning); err != nil {
 		return nil, err
 	}
+
 	listFunds, err := lightning.ListFunds()
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
@@ -163,7 +164,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 }
 
 // OnInit One time callback called from the lightning implementation
-func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
+func (instance *MetricOne) OnInit(lightning cln4go.Client) error {
 	getInfo, err := lightning.GetInfo()
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
@@ -202,7 +203,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	return instance.MakePersistent()
 }
 
-func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
+func (instance *MetricOne) Update(lightning cln4go.Client) error {
 	status, err := instance.onEvent("on_update", lightning)
 	if err != nil {
 		return err
@@ -215,8 +216,7 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 	return instance.MakePersistent()
 }
 
-func (instance *MetricOne) UpdateWithMsg(message *Msg,
-	lightning *glightning.Lightning) error {
+func (instance *MetricOne) UpdateWithMsg(message *Msg, lightning cln4go.Client) error {
 	if event, ok := message.params["event"]; ok {
 		status, err := instance.onEvent(fmt.Sprintf("%s", event), lightning)
 		if err != nil {
@@ -241,7 +241,7 @@ func (instance *MetricOne) MakePersistent() error {
 	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson)
 }
 
-func (instance *MetricOne) OnStop(msg *Msg, lightning *glightning.Lightning) error {
+func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	// FIXME: Check if the values are empty, if yes, try a solution  to avoid to push empty payload.
 	var lastMetric MetricOne
@@ -281,7 +281,7 @@ func (instance *MetricOne) ToJSON() (string, error) {
 }
 
 // InitOnRepo Contact the server and make an init the node.
-func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
+func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	log.GetInstance().Info("Init plugin on repository")
 	err := client.GetNodeMetadata(instance.NodeID, instance.Network)
 	if err != nil {
@@ -323,7 +323,7 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 }
 
 // UploadOnRepo Contact the server and make an update request
-func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
+func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	payload, err := instance.ToJSON()
 	if err != nil {
 		return err
@@ -349,7 +349,7 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 }
 
 // checkChannelInCache check if a node with channel_id is inside the gossip map or in the cache
-func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, channelID string) (*cache.NodeInfoCache, error) {
+func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelID string) (*cache.NodeInfoCache, error) {
 	var nodeInfo cache.NodeInfoCache
 	inCache := false
 	if cache.GetInstance().IsInCache(channelID) {
@@ -385,7 +385,7 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 }
 
 // makeChannelsSummary Make a summary of all the channels information that the node have a channels with.
-func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
+func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
 	channelsSummary := &ChannelsSummary{
 		TotChannels: 0,
 		Summary:     make([]*ChannelSummary, 0),
@@ -424,7 +424,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 	return channelsSummary, nil
 }
 
-func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, forwards []glightning.Forwarding) (*PaymentsSummary, error) {
+func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards []glightning.Forwarding) (*PaymentsSummary, error) {
 	statusPayments := PaymentsSummary{
 		Completed: 0,
 		Failed:    0,
@@ -445,7 +445,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 }
 
 // private method of the module
-func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel, event string) error {
+func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels []*glightning.FundingChannel, event string) error {
 	cache := make(map[string]bool)
 	cachePing := make(map[string]int64)
 	for _, channel := range channels {
@@ -488,7 +488,7 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	return nil
 }
 
-func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning, channelID string) ([]string, error) {
+func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channelID string) ([]string, error) {
 	directions := make([]string, 0)
 
 	channels, err := lightning.GetChannel(channelID)
@@ -510,7 +510,7 @@ func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning,
 	return directions, nil
 }
 
-func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
+func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 	channel *glightning.FundingChannel, event string, cachePing map[string]int64) error {
 
 	shortChannelId := channel.ShortChannelId
@@ -613,7 +613,7 @@ func NewUnknownChannel() *glightning.Channel {
 // as return:
 // map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is splitted.
 // error: If any error during this operation occurs
-func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
+func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 	channel *glightning.FundingChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
 
 	result := make(map[string]*ChannelInfo)

@@ -4,8 +4,7 @@ package plugin
 
 import (
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
-
-	"github.com/vincenzopalazzo/glightning/glightning"
+	"github.com/vincenzopalazzo/cln4go/client"
 )
 
 // MetricsSupported mapping the internal id with the name of the metrics.
@@ -31,25 +30,25 @@ type Metric interface {
 	MetricName() *string
 
 	// OnInit initialize the method with node information
-	OnInit(lightning *glightning.Lightning) error
+	OnInit(lightning client.Client) error
 
 	// OnStop commit the actual information before exit
-	OnStop(msg *Msg, lightning *glightning.Lightning) error
+	OnStop(msg *Msg, lightning client.Client) error
 
 	// MakePersistent make the metric persistent
 	MakePersistent() error
 
 	// UploadOnRepo Commit the metric on remote server
-	UploadOnRepo(client *graphql.Client, lightning *glightning.Lightning) error
+	UploadOnRepo(client *graphql.Client, lightning client.Client) error
 
 	// InitOnRepo Init metric on the remote server.
-	InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error
+	InitOnRepo(client *graphql.Client, lightning client.Client) error
 
 	// Update the metric with the last information of the node
-	Update(lightning *glightning.Lightning) error
+	Update(lightning client.Client) error
 
 	// UpdateWithMsg update the metric with the last information fo the node with some msg info
-	UpdateWithMsg(message *Msg, lightning *glightning.Lightning) error
+	UpdateWithMsg(message *Msg, lightning client.Client) error
 
 	// ToJSON convert the object into a json
 	ToJSON() (string, error)
