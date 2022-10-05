@@ -82,6 +82,7 @@ func (instance *MetricOne) Migrate(payload map[string]any) error {
 }
 
 func (instance *MetricOne) snapshotListPeers(lightning *glightning.Lightning) error {
+	instance.PeerSnapshot = make(map[string]*glightning.Peer)
 	listPeers, err := lightning.ListPeers()
 	if err != nil {
 		log.GetInstance().Errorf("listpeer terminated with an error %s", err)
