@@ -45,6 +45,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		ChannelsInfo: make(map[string]*statusChannel),
 		Color:        "",
 		Storage:      storage,
+		PeerSnapshot: make(map[string]*glightning.Peer),
 	}
 }
 
@@ -80,32 +81,52 @@ func (instance *MetricOne) Migrate(payload map[string]any) error {
 	return nil
 }
 
+func (instance *MetricOne) snapshotListPeers(lightning *glightning.Lightning) error {
+	listPeers, err := lightning.ListPeers()
+	if err != nil {
+		log.GetInstance().Errorf("listpeer terminated with an error %s", err)
+		return err
+	}
+
+	for _, peer := range listPeers {
+		_, found := instance.PeerSnapshot[peer.Id]
+		if !found {
+			instance.PeerSnapshot[peer.Id] = peer
+		}
+	}
+
+	return nil
+}
+
 // Generic Plugin callback that it is run each time that the plugin need to recording a new event.
 func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
+	if err := instance.snapshotListPeers(lightning); err != nil {
+		return nil, err
+	}
 	listFunds, err := lightning.ListFunds()
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
 	if err := instance.collectInfoChannels(lightning, listFunds.Channels, nameEvent); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		// We admit this error here, we print only some log information.
 	}
 
 	listForwards, err := lightning.ListForwards()
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
 	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
 
 	channelsSummary, err := instance.makeChannelsSummary(lightning, listFunds.Channels)
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		// We admit this error here, we print only some log information.
 		// In the call that cause this error we make a call to getListNodes, but
 		// the node with that we have the channels with can be offline for a while
@@ -213,7 +234,7 @@ func (instance *MetricOne) UpdateWithMsg(message *Msg,
 func (instance *MetricOne) MakePersistent() error {
 	instanceJson, err := instance.ToJSON()
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("JSON error %s", err))
+		log.GetInstance().Errorf("JSON error %s", err)
 		return err
 	}
 	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson)
@@ -307,13 +328,13 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 		return err
 	}
 	toSign := sha256.SHA256(&payload)
-	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+	log.GetInstance().Infof("Hash of the paylad: %s", toSign)
 	signPayload, err := lightning.SignMessage(toSign)
 	if err != nil {
 		return err
 	}
 	if err := client.UploadMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error %s: ", err))
+		log.GetInstance().Errorf("Error %s: ", err)
 		return err
 	}
 
@@ -322,7 +343,7 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 
 	// Refactored this method in an utils functions
 	t := time.Now()
-	log.GetInstance().Info(fmt.Sprintf("Metric One Upload at %s", t.Format(time.RFC850)))
+	log.GetInstance().Infof("Metric One Upload at %s", t.Format(time.RFC850))
 	return nil
 }
 
@@ -346,7 +367,7 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 	if !inCache {
 		node, err := lightning.GetNode(channelID)
 		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error in command listNodes in makeChannelsSummary: %s", err))
+			log.GetInstance().Errorf("Error in command listNodes in makeChannelsSummary: %s", err)
 			return nil, err
 		}
 		nodeInfo = cache.NodeInfoCache{
@@ -375,7 +396,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 			if channel.State == "ONCHAIN" {
 				// When the channel is on chain, it is not longer a channel,
 				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
-				log.GetInstance().Debug(fmt.Sprintf("The channel with ID %s has ON_CHAIN status", channel.Id))
+				log.GetInstance().Debugf("The channel with ID %s has ON_CHAIN status", channel.Id)
 				continue
 			}
 
@@ -497,7 +518,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 	if !found {
 		timestamp = 0
 		// avoid storing the wrong data related to the gossip delay.
-		if instance.pingNode(lightning, channel.Id) {
+		if instance.peerConnected(lightning, channel.Id) {
 			timestamp = time.Now().Unix()
 		}
 		cachePing[channel.Id] = timestamp
@@ -563,12 +584,13 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 	return nil
 }
 
-func (instance *MetricOne) pingNode(lightning *glightning.Lightning, nodeId string) bool {
-	if _, err := lightning.Ping(nodeId); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during ping node %s: %s", nodeId, err))
+func (instance *MetricOne) peerConnected(lightning *glightning.Lightning, nodeId string) bool {
+	peer, found := instance.PeerSnapshot[nodeId]
+	if !found {
+		log.GetInstance().Infof("peer with node id %s not found", nodeId)
 		return false
 	}
-	return true
+	return peer.Connected
 }
 
 func NewUnknownChannel() *glightning.Channel {

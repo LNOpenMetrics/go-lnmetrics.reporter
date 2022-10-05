@@ -2,8 +2,10 @@ package plugin
 
 import (
 	"encoding/json"
-	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"strings"
+
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
+	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
 // PaymentInfo Information about the Payment forward by the node
@@ -195,6 +197,8 @@ type MetricOne struct {
 
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
+
+	PeerSnapshot map[string]*glightning.Peer
 }
 
 func (instance MetricOne) MarshalJSON() ([]byte, error) {
