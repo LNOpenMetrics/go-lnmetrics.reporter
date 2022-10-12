@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/objx v0.1.0 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
-	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221005115405-d332acb5a206 // indirect
+	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221012145526-0442164fefe5 // indirect
 	github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221004174515-cc8bea295b3e // indirect
 	github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221005115405-d332acb5a206 // indirect
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect

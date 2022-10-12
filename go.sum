@@ -76,6 +76,8 @@ github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFd
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/vincenzopalazzo/cln4go/client v0.0.0-20221005115405-d332acb5a206 h1:kr01zM8hAEema0RDaCgHTlWhFYqDhmkoMHShWf3Xelc=
 github.com/vincenzopalazzo/cln4go/client v0.0.0-20221005115405-d332acb5a206/go.mod h1:7X4Hn+hwG3Ts/S3tgEqsowfUHZqyjx7/1z/8oDw7Muw=
+github.com/vincenzopalazzo/cln4go/client v0.0.0-20221012145526-0442164fefe5 h1:x4DPhmvZF0EFLrMlIRBnOpWXHuam8EYMkhV3z9bIOZs=
+github.com/vincenzopalazzo/cln4go/client v0.0.0-20221012145526-0442164fefe5/go.mod h1:7X4Hn+hwG3Ts/S3tgEqsowfUHZqyjx7/1z/8oDw7Muw=
 github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221004174515-cc8bea295b3e h1:GPQaUcmrl5Uq/5A5sMuxd2YvUXdT4HGNi4DF0VLCxfo=
 github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221004174515-cc8bea295b3e/go.mod h1:zyOWcz5aSHCsLuZLaVBTjbRnxlf5Ac+Rfhu5Ciuyy2c=
 github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221004174515-cc8bea295b3e h1:IzXcyI2XVWxG8QIj6Z2O7kRUF7yXrLb91HmXr48BEAM=

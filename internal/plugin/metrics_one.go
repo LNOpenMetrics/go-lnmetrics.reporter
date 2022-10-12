@@ -13,6 +13,7 @@ import (
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/ln"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/model"
 
 	"github.com/LNOpenMetrics/lnmetrics.utils/hash/sha256"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
@@ -46,7 +47,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		ChannelsInfo: make(map[string]*statusChannel),
 		Color:        "",
 		Storage:      storage,
-		PeerSnapshot: make(map[string]*glightning.Peer),
+		PeerSnapshot: make(map[string]*model.ListPeersPeer),
 	}
 }
 
@@ -82,9 +83,9 @@ func (instance *MetricOne) Migrate(payload map[string]any) error {
 	return nil
 }
 
-func (instance *MetricOne) snapshotListPeers(lightning *glightning.Lightning) error {
-	instance.PeerSnapshot = make(map[string]*glightning.Peer)
-	listPeers, err := lightning.ListPeers()
+func (instance *MetricOne) snapshotListPeers(lightning cln4go.Client) error {
+	instance.PeerSnapshot = make(map[string]*model.ListPeersPeer)
+	listPeers, err := ln.ListPeers(lightning, nil)
 	if err != nil {
 		log.GetInstance().Errorf("listpeer terminated with an error %s", err)
 		return err
@@ -386,7 +387,7 @@ func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelI
 }
 
 // makeChannelsSummary Make a summary of all the channels information that the node have a channels with.
-func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
+func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels []*model.ListFundsChannel) (*ChannelsSummary, error) {
 	channelsSummary := &ChannelsSummary{
 		TotChannels: 0,
 		Summary:     make([]*ChannelSummary, 0),
@@ -425,7 +426,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels
 	return channelsSummary, nil
 }
 
-func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards []glightning.Forwarding) (*PaymentsSummary, error) {
+func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards []*model.Forward) (*PaymentsSummary, error) {
 	statusPayments := PaymentsSummary{
 		Completed: 0,
 		Failed:    0,
@@ -446,7 +447,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards
 }
 
 // private method of the module
-func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels []*glightning.FundingChannel, event string) error {
+func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels []*model.ListFundsChannel, event string) error {
 	cache := make(map[string]bool)
 	cachePing := make(map[string]int64)
 	for _, channel := range channels {
@@ -512,7 +513,7 @@ func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channel
 }
 
 func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
-	channel *glightning.FundingChannel, event string, cachePing map[string]int64) error {
+	channel *model.ListFundsChannel, event string, cachePing map[string]int64) error {
 
 	shortChannelId := channel.ShortChannelId
 	timestamp, found := cachePing[channel.Id]
@@ -595,8 +596,8 @@ func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string)
 	return peer.Connected
 }
 
-func NewUnknownChannel() *glightning.Channel {
-	return &glightning.Channel{
+func NewUnknownChannel() *model.ListChannelsChannel {
+	return &model.ListChannelsChannel{
 		LastUpdate:               0,
 		BaseFeeMillisatoshi:      0,
 		FeePerMillionth:          0,
@@ -615,16 +616,16 @@ func NewUnknownChannel() *glightning.Channel {
 // map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is splitted.
 // error: If any error during this operation occurs
 func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
-	channel *glightning.FundingChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
+	channel *model.ListFundsChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
 
 	result := make(map[string]*ChannelInfo)
 
-	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
+	subChas, err := ln.ListChannels(lightning, channel.ShortChannelId)
 
 	// This error should never happen
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
-		subChannels = []*glightning.Channel{NewUnknownChannel()}
+		subChannels = []*model.ListChannelsChannel{NewUnknownChannel()}
 	}
 
 	for _, subChannel := range subChannels {

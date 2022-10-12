@@ -2,13 +2,17 @@ package model
 
 var EmpityPayload = make(map[string]any)
 
-type ListFundsResponse struct {
-	Channels []*ListFundsChannelResponse
+type ListFundsResp struct {
+	Channels []*ListFundsChannel
 }
 
-type ListFundsChannelResponse struct{}
+type ListFundsChannel struct{}
 
-type ListForwardsResponse struct{}
+type ListForwardsResp struct {
+	Forwards []*Forward `json:"forwards"`
+}
+
+type Forward struct{}
 
 type ListConfigResp struct{}
 
@@ -34,12 +38,24 @@ type ListChannelsResp struct {
 
 type ListChannelsChannel struct{}
 
-type ListNodeReq struct {
+type ListNodesReq struct {
 	ChannelId *string
 }
 
 type ListNodesResp struct {
-	nodes []*ListNodesNode
+	Nodes []*ListNodesNode
 }
 
 type ListNodesNode struct{}
+
+type ListPeersResp struct {
+	Peers []*ListPeersPeer
+}
+
+type ListPeersReq struct {
+	PeerId *string `json:"id,omitempty"`
+}
+
+type ListPeersPeer struct {
+	Connected bool `json:"connected"`
+}
