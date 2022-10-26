@@ -17,8 +17,13 @@ func ListForwards(client cln4go.Client) ([]*model.Forward, error) {
 	return resp.Forwards, nil
 }
 
-func ListConfig(client cln4go.Client) (*model.ListConfigResp, error) {
-	return cln4go.Call[cln4go.Client, map[string]any, model.ListConfigResp](client, "listconfig", model.EmpityPayload)
+// / FIXME: check if it is possible improve the way to return a map
+func ListConfig(client cln4go.Client) (map[string]any, error) {
+	result, err := cln4go.Call[cln4go.Client, map[string]any, map[string]any](client, "listconfig", model.EmpityPayload)
+	if err != nil {
+		return nil, err
+	}
+	return *result, err
 }
 
 func GetInfo(client cln4go.Client) (*model.GetInfoResp, error) {

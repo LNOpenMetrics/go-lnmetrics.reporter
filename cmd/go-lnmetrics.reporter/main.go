@@ -16,15 +16,13 @@ func main() {
 	metricsPlugin = metrics.MetricsPlugin{Plugin: nil,
 		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
-	plugin, err := metrics.ConfigureCLNPlugin[metrics.MetricsPlugin](&metricsPlugin)
+	plugin, err := metrics.ConfigureCLNPlugin[*metrics.MetricsPlugin](&metricsPlugin)
 	if err != nil {
 		panic(err)
 	}
 
 	hook := &glightning.Hooks{RpcCommand: OnRpcCommand}
-	if err := plugin.RegisterHooks(hook); err != nil {
-		panic(err)
-	}
+	plugin.RegisterHooks("rpc_command")
 
 	if err := metricsPlugin.RegisterMethods(); err != nil {
 		panic(err)
@@ -40,7 +38,7 @@ func main() {
 }
 
 func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
-	if err := metricsPlugin.HendlerRPCMessage(event); err != nil {
+	if err := metricsPlugin.HandlerRPCMessage(event); err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during a hook handler: %s", err))
 	}
 	return event.Continue(), nil

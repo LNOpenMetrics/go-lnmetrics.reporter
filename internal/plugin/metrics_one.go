@@ -399,17 +399,25 @@ func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels
 			if channel.State == "ONCHAIN" {
 				// When the channel is on chain, it is not longer a channel,
 				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
-				log.GetInstance().Debugf("The channel with ID %s has ON_CHAIN status", channel.Id)
+				log.GetInstance().Debugf("The channel with ID %s has ON_CHAIN status", channel.PeerId)
 				continue
 			}
 
+			// in some case the state can be undefined because
+			// not yet defined, not sure how much is real this case
+			// but it is good to keep this in mind!
+			shortChannelId := "undefined"
+			if channel.ShortChannelId != nil {
+				shortChannelId = *channel.ShortChannelId
+			}
+
 			channelSummary := &ChannelSummary{
-				NodeId:    channel.Id,
-				ChannelId: channel.ShortChannelId,
+				NodeId:    channel.PeerId,
+				ChannelId: shortChannelId,
 				State:     channel.State,
 			}
 
-			nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
+			nodeInfo, err := instance.checkChannelInCache(lightning, channel.PeerId)
 			if err != nil {
 				// the node is not in the cache and in the gossip map
 				// skip this should be fine too
@@ -463,13 +471,17 @@ func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				return err
 			}
-			directions, err := instance.getChannelDirections(lightning, channel.ShortChannelId)
+			if channel.ShortChannelId == nil {
+				log.GetInstance().Errorf("short channel id not defined for node %s on state %s", channel.PeerId, channel.State)
+				return fmt.Errorf("short channel id is not defined for node %s on state %s", channel.PeerId, channel.State)
+			}
+			directions, err := instance.getChannelDirections(lightning, *channel.ShortChannelId)
 			if err != nil {
 				log.GetInstance().Errorf("Error: %s", err)
 				return nil
 			}
 			for _, direction := range directions {
-				key := strings.Join([]string{channel.ShortChannelId, direction}, "_")
+				key := strings.Join([]string{*channel.ShortChannelId, direction}, "_")
 				cache[key] = true
 			}
 		}
@@ -516,25 +528,30 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 	channel *model.ListFundsChannel, event string, cachePing map[string]int64) error {
 
 	shortChannelId := channel.ShortChannelId
-	timestamp, found := cachePing[channel.Id]
+	timestamp, found := cachePing[channel.PeerId]
 	// be nicer with the node and do not stress too much by pinging the node too much!
 	if !found {
 		timestamp = 0
 		// avoid storing the wrong data related to the gossip delay.
-		if instance.peerConnected(lightning, channel.Id) {
+		if instance.peerConnected(lightning, channel.PeerId) {
 			timestamp = time.Now().Unix()
 		}
-		cachePing[channel.Id] = timestamp
+		cachePing[channel.PeerId] = timestamp
 	}
 
-	directions, err := instance.getChannelDirections(lightning, shortChannelId)
+	if channel.ShortChannelId == nil {
+		log.GetInstance().Errorf("short channel id not defined for node %s on state %s", channel.PeerId, channel.State)
+		return fmt.Errorf("short channel id is not defined for node %s on state %s", channel.PeerId, channel.State)
+	}
+
+	directions, err := instance.getChannelDirections(lightning, *shortChannelId)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return err
 	}
 
 	for _, direction := range directions {
-		key := strings.Join([]string{shortChannelId, direction}, "_")
+		key := strings.Join([]string{*shortChannelId, direction}, "_")
 		infoChannel, found := instance.ChannelsInfo[key]
 
 		infoMap, err := instance.getChannelInfo(lightning, channel, infoChannel)
@@ -561,11 +578,11 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 			upTimes := make([]*channelStatus, 1)
 			upTimes[0] = &channelStat
 			newInfoChannel := statusChannel{
-				ChannelId:  shortChannelId,
+				ChannelId:  *shortChannelId,
 				NodeId:     info.NodeId,
 				NodeAlias:  info.Alias,
 				Color:      info.Color,
-				Capacity:   channel.ChannelSatoshi,
+				Capacity:   channel.TotAmountMsat(),
 				LastUpdate: info.LastUpdate,
 				Forwards:   info.Forwards,
 				UpTimes:    upTimes,
@@ -576,7 +593,7 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 			}
 			instance.ChannelsInfo[key] = &newInfoChannel
 		} else {
-			infoChannel.Capacity = channel.ChannelSatoshi
+			infoChannel.Capacity = channel.TotAmountMsat()
 			infoChannel.UpTimes = append(infoChannel.UpTimes, &channelStat)
 			infoChannel.Color = info.Color
 			infoChannel.Online = channel.Connected
@@ -598,11 +615,12 @@ func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string)
 
 func NewUnknownChannel() *model.ListChannelsChannel {
 	return &model.ListChannelsChannel{
-		LastUpdate:               0,
-		BaseFeeMillisatoshi:      0,
-		FeePerMillionth:          0,
-		HtlcMinimumMilliSatoshis: "0msat",
-		HtlcMaximumMilliSatoshis: "0msat",
+		LastUpdate:          0,
+		BaseFeeMillisatoshi: 0,
+		FeePerMillionth:     0,
+		// FIXME: check the deprecate API there
+		HtlcMinimumMsat: 0,
+		HtlcMaximumMsat: 0,
 	}
 }
 
@@ -620,7 +638,7 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 
 	result := make(map[string]*ChannelInfo)
 
-	subChas, err := ln.ListChannels(lightning, channel.ShortChannelId)
+	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
 
 	// This error should never happen
 	if err != nil {
@@ -630,29 +648,30 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 
 	for _, subChannel := range subChannels {
 		// The private channel do not need to be included inside the metrics
-		// FIXME: when we will be able to have also a offline mode
-		if !subChannel.IsPublic {
+		// FIXME: when we will be able to have also a offline mode these
+		// channels can be included
+		if !subChannel.Public {
 			continue
 		}
-		nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
+		nodeInfo, err := instance.checkChannelInCache(lightning, channel.PeerId)
 		if err != nil {
 			continue
 		}
 		// Init the default data here
 		channelInfo := &ChannelInfo{
-			NodeId:     channel.Id,
+			NodeId:     channel.PeerId,
 			Alias:      "unknown",
 			Color:      "unknown",
 			Direction:  "UNKNOWN",
-			LastUpdate: subChannel.LastUpdate,
+			LastUpdate: uint(subChannel.LastUpdate),
 			Forwards:   make([]*PaymentInfo, 0),
 			Fee: &ChannelFee{
 				Base:    subChannel.BaseFeeMillisatoshi,
 				PerMSat: subChannel.FeePerMillionth,
 			},
 			Limits: &ChannelLimits{
-				Min: getMSatValue(subChannel.HtlcMinimumMilliSatoshis),
-				Max: getMSatValue(subChannel.HtlcMaximumMilliSatoshis),
+				Min: getMSatValue(*subChannel.HtlcMinMsat()),
+				Max: getMSatValue(*subChannel.HtlcMaxMsat()),
 			},
 		}
 
@@ -706,7 +725,8 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 
 			// if our channel is where the payment is trying to go
 			// we change the direction from OUTCOMING to INCOOMING
-			if channel.ShortChannelId == forward.OutChannel {
+			// FIXME: make sure that the short_channel_id is not null
+			if channel.ShortChannelId != nil && *channel.ShortChannelId == forward.OutChannel {
 				paymentInfo.Direction = ChannelDirections[1]
 			}
 
@@ -716,12 +736,12 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 			if channelInfo.Direction != "UNKNOWN" &&
 				paymentInfo.Direction != channelInfo.Direction {
 				log.GetInstance().Infof("New forwarding found but in the wrong direction, %s -> %s", forward.InChannel, forward.OutChannel)
-				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
 				log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 				continue
 			}
 			log.GetInstance().Infof("New forwarding found but in the correct direction, %s -> %s", forward.InChannel, forward.OutChannel)
-			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
 			log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 
 			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
@@ -738,7 +758,7 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 				}
 				paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
 				paymentInfo.FailureReason = forward.FailReason
-				paymentInfo.FailureCode = forward.FailCode
+				paymentInfo.FailureCode = int(*forward.FailCode)
 			default:
 				return nil, fmt.Errorf("status %s unexpected", forward.Status)
 			}

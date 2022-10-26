@@ -29,8 +29,13 @@ func (self *MetricsPlugin) GetRpc() *cln4go.UnixRPC {
 	return self.Rpc
 }
 
-func (self *MetricsPlugin) NewClient(path string) {
-	self.Rpc, _ = cln4go.NewUnix(path)
+func (self *MetricsPlugin) NewClient(path string) error {
+	rpc, err := cln4go.NewUnix(path)
+	if err != nil {
+		return err
+	}
+	self.Rpc = rpc
+	return nil
 }
 
 func (self *MetricsPlugin) SetStorage(storage db.PluginDatabase) {
@@ -58,7 +63,7 @@ func (self *MetricsPlugin) GetServer() *graphql.Client {
 }
 
 // FIXME: switch to the shutdown notification
-func (plugin *MetricsPlugin) HandlerRPMMessage(event *glightning.RpcCommandEvent) error {
+func (plugin *MetricsPlugin) HandlerRPCMessage(event *glightning.RpcCommandEvent) error {
 	command := event.Cmd
 	switch command.MethodName {
 	case "stop":
