@@ -1,11 +1,7 @@
 package main
 
 import (
-	"fmt"
-
 	metrics "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
-	"github.com/LNOpenMetrics/lnmetrics.utils/log"
-	"github.com/vincenzopalazzo/glightning/glightning"
 )
 
 var metricsPlugin metrics.MetricsPlugin
@@ -21,9 +17,6 @@ func main() {
 		panic(err)
 	}
 
-	hook := &glightning.Hooks{RpcCommand: OnRpcCommand}
-	plugin.RegisterHooks("rpc_command")
-
 	if err := metricsPlugin.RegisterMethods(); err != nil {
 		panic(err)
 	}
@@ -35,11 +28,4 @@ func main() {
 	metricsPlugin.Cron.Start()
 
 	plugin.Start()
-}
-
-func OnRpcCommand(event *glightning.RpcCommandEvent) (*glightning.RpcCommandResponse, error) {
-	if err := metricsPlugin.HandlerRPCMessage(event); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error during a hook handler: %s", err))
-	}
-	return event.Continue(), nil
 }

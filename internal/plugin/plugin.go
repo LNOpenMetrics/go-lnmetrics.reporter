@@ -62,26 +62,6 @@ func (self *MetricsPlugin) GetServer() *graphql.Client {
 	return self.Server
 }
 
-// FIXME: switch to the shutdown notification
-func (plugin *MetricsPlugin) HandlerRPCMessage(event *glightning.RpcCommandEvent) error {
-	command := event.Cmd
-	switch command.MethodName {
-	case "stop":
-		// Share to all the metrics, so we need a global method that iterate over the metrics map
-		params := make(map[string]any)
-		params["timestamp"] = time.Now()
-		msg := Msg{"stop", params}
-		for _, metric := range plugin.Metrics {
-			go plugin.callOnStopOnMetrics(metric, &msg)
-		}
-		plugin.Cron.Stop()
-		log.GetInstance().Info("Close command received")
-	default:
-		return nil
-	}
-	return nil
-}
-
 func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
@@ -126,6 +106,14 @@ func (plugin *MetricsPlugin) RegisterMethods() error {
 	return nil
 }
 
+func (self *MetricsPlugin) GetMetrics() map[int]Metric {
+	return self.Metrics
+}
+
+func (self *MetricsPlugin) GetCron() *cron.Cron {
+	return self.Cron
+}
+
 // nolint
 func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
@@ -134,7 +122,7 @@ func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
 }
 
 // callOnStopOnMetrics Call on stop operation on the node when the caller are shutdown itself.
-func (plugin *MetricsPlugin) callOnStopOnMetrics(metric Metric, msg *Msg) {
+func (plugin *MetricsPlugin) CallOnStopOnMetrics(metric Metric, msg *Msg) {
 	err := metric.OnStop(msg, plugin.GetRpc())
 	if err != nil {
 		log.GetInstance().Error(err)
