@@ -40,12 +40,12 @@ func OnInit[T MetricsPluginState](plugin *cln4go.Plugin[T], request map[string]a
 	}
 	metricsPlugin.SetStorage(dbPlugin)
 
-	err = parseOptionsPlugin(plugin)
+	err = parseOptionsPlugin[T](plugin)
 	if err != nil {
 		panic(err)
 	}
 	// FIXME: Load all the metrics in the datatabase that are registered from the user
-	metric, err := loadMetricIfExist(plugin, 1)
+	metric, err := loadMetricIfExist[T](plugin, 1)
 
 	if err != nil {
 		panic(err)
@@ -75,12 +75,17 @@ func parseOptionsPlugin[T MetricsPluginState](plugin *cln4go.Plugin[T]) error {
 		})
 	}
 
-	noProxy, _ := plugin.GetOpt("lnmetrics-noproxy")
+	str, _ := json.Marshal(plugin.Options)
+	plugin.Log("info", string(str))
+	noProxy, found := plugin.GetOpt("lnmetrics-noproxy")
+	plugin.Log("info", fmt.Sprintf("no proxy found: %t", found))
 	proxy, _ := plugin.GetConf("proxy")
 	if proxy != nil && !noProxy.(bool) {
-		addr, _ := plugin.GetConf("address")
-		port, _ := plugin.GetConf("port")
-		server, err := graphql.NewWithProxy(urls, addr.(string), port.(uint64))
+		proxyVar := proxy.(map[string]any)
+		addr := proxyVar["address"]
+		port := proxyVar["port"]
+		portCast := port.(float64)
+		server, err := graphql.NewWithProxy(urls, addr.(string), uint64(portCast))
 		if err != nil {
 			return err
 		}
@@ -104,7 +109,7 @@ func loadMetricIfExist[T MetricsPluginState](plugin *cln4go.Plugin[T], id int) (
 
 	switch id {
 	case 1:
-		return loadLastMetricOne(plugin)
+		return loadLastMetricOne[T](plugin)
 	default:
 		return nil, fmt.Errorf("Metric with is %d and name %s not supported", id, metricName)
 	}

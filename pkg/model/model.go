@@ -11,7 +11,7 @@ import (
 var EmpityPayload = make(map[string]any)
 
 type ListFundsResp struct {
-	Channels []*ListFundsChannel
+	Channels []*ListFundsChannel `json:"channels"`
 }
 
 type ListFundsChannel struct {
@@ -71,11 +71,11 @@ type SignMessageResp struct {
 }
 
 type ListChannelReq struct {
-	ChannelId *string
+	ChannelId *string `json:"short_channel_id"`
 }
 
 type ListChannelsResp struct {
-	Channels []*ListChannelsChannel
+	Channels []*ListChannelsChannel `json:"channels"`
 }
 
 type ListChannelsChannel struct {
@@ -100,11 +100,11 @@ func (self *ListChannelsChannel) HtlcMaxMsat() *string {
 }
 
 type ListNodesReq struct {
-	ChannelId *string
+	ChannelId *string `json:"id"`
 }
 
 type ListNodesResp struct {
-	Nodes []*ListNodesNode
+	Nodes []*ListNodesNode `json:"nodes"`
 }
 
 type ListNodesNode struct {
@@ -115,7 +115,7 @@ type ListNodesNode struct {
 }
 
 type ListPeersResp struct {
-	Peers []*ListPeersPeer
+	Peers []*ListPeersPeer `json:"peers"`
 }
 
 type ListPeersReq struct {

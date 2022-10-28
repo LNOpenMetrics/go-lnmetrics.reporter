@@ -32,5 +32,7 @@ type MetricsPluginState interface {
 
 	CallOnStopOnMetrics(metric Metric, msg *Msg)
 
+	CallUpdateOnMetric(metric Metric, msg *Msg)
+
 	GetMetrics() map[int]Metric
 }

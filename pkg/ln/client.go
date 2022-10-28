@@ -1,6 +1,8 @@
 package ln
 
 import (
+	"fmt"
+
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/model"
 	cln4go "github.com/vincenzopalazzo/cln4go/client"
 )
@@ -18,8 +20,8 @@ func ListForwards(client cln4go.Client) ([]*model.Forward, error) {
 }
 
 // / FIXME: check if it is possible improve the way to return a map
-func ListConfig(client cln4go.Client) (map[string]any, error) {
-	result, err := cln4go.Call[cln4go.Client, map[string]any, map[string]any](client, "listconfig", model.EmpityPayload)
+func ListConfigs(client cln4go.Client) (map[string]any, error) {
+	result, err := cln4go.Call[cln4go.Client, map[string]any, map[string]any](client, "listconfigs", model.EmpityPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +33,10 @@ func GetInfo(client cln4go.Client) (*model.GetInfoResp, error) {
 }
 
 func SignMessage(client cln4go.Client, content *string) (*model.SignMessageResp, error) {
-	return cln4go.Call[cln4go.Client, map[string]any, model.SignMessageResp](client, "signmessage", model.EmpityPayload)
+	req := map[string]any{
+		"message": content,
+	}
+	return cln4go.Call[cln4go.Client, map[string]any, model.SignMessageResp](client, "signmessage", req)
 }
 
 // FIXME: can exist some node with mode channels
@@ -54,10 +59,13 @@ func ListChannels(client cln4go.Client, nodeId *string) ([]*model.ListChannelsCh
 	return resp.Channels, nil
 }
 
-func GetNode(client cln4go.Client, channelId *string) (*model.ListNodesNode, error) {
-	res, err := ListNodes(client, channelId)
+func GetNode(client cln4go.Client, channelId string) (*model.ListNodesNode, error) {
+	res, err := ListNodes(client, &channelId)
 	if err != nil {
 		return nil, err
+	}
+	if len(res) == 0 {
+		return nil, fmt.Errorf("node %s not found", channelId)
 	}
 	return res[0], nil
 }

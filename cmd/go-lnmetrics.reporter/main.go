@@ -17,10 +17,6 @@ func main() {
 		panic(err)
 	}
 
-	if err := metricsPlugin.RegisterMethods(); err != nil {
-		panic(err)
-	}
-
 	// To set the time the following doc is followed
 	// https://pkg.go.dev/github.com/robfig/cron?utm_source=godoc
 	metricsPlugin.RegisterRecurrentEvt("@every 30m")

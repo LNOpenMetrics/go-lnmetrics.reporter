@@ -72,40 +72,6 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	return nil
 }
 
-func (plugin *MetricsPlugin) RegisterMethods() error {
-	method := NewMetricPlugin(plugin)
-	rpcMethod := glightning.NewRpcMethod(method, "Show diagnostic node")
-	rpcMethod.LongDesc = "Show the metric one data of the lightning network node. An example metric_one start=last"
-	rpcMethod.Category = "lnmetrics"
-	if err := plugin.Plugin.RegisterMethod(rpcMethod); err != nil {
-		return err
-	}
-
-	infoMethod := NewPluginRpcMethod(plugin)
-	infoRpcMethod := glightning.NewRpcMethod(infoMethod, "Show go-lnmetrics.reporter info")
-	infoRpcMethod.Category = "lnmetrics"
-	infoRpcMethod.LongDesc = "Return the info od the env where the plugin is running. An example is \"lnmetrics-info"
-	if err := plugin.Plugin.RegisterMethod(infoRpcMethod); err != nil {
-		return err
-	}
-
-	cacheMethod := NewCleanCacheRPC(plugin)
-	cacheRPCMethod := glightning.NewRpcMethod(cacheMethod, "Clean all the lnmetrics cache")
-	cacheRPCMethod.Category = "lnmetrics"
-	cacheRPCMethod.LongDesc = "Clean the cache made by the plugin during the time. An example is \"lnmetrics-cache clean"
-	if err := plugin.Plugin.RegisterMethod(cacheRPCMethod); err != nil {
-		return err
-	}
-
-	forceUpdate := NewForceUpdateRPC(plugin)
-	forceUpdateRPC := glightning.NewRpcMethod(forceUpdate, "call the update on all the plugin")
-	forceUpdateRPC.Category = "lnmetrics"
-	if err := plugin.Plugin.RegisterMethod(forceUpdateRPC); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (self *MetricsPlugin) GetMetrics() map[int]Metric {
 	return self.Metrics
 }
@@ -115,7 +81,7 @@ func (self *MetricsPlugin) GetCron() *cron.Cron {
 }
 
 // nolint
-func (plugin *MetricsPlugin) callUpdateOnMetric(metric Metric, msg *Msg) {
+func (plugin *MetricsPlugin) CallUpdateOnMetric(metric Metric, msg *Msg) {
 	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
 		log.GetInstance().Errorf("Error during update metrics event: %s", err)
 	}
@@ -171,7 +137,7 @@ func (plugin *MetricsPlugin) RegisterOneTimeEvt(after string) {
 	}
 	time.AfterFunc(duration, func() {
 		log.GetInstance().Debug("Calling on time function function")
-		// TODO: Should C-Lightning send a on init event like notification?
+		// FIXME: Should C-Lightning send a on init event like notification?
 		for _, metric := range plugin.Metrics {
 			go func(instance *MetricsPlugin, metric Metric) {
 				err := metric.OnInit(instance.GetRpc())

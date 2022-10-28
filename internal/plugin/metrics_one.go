@@ -137,7 +137,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 		// and this mean that can be out of the gossip map.
 	}
 
-	listConfig, err := ln.ListConfig(lightning)
+	listConfig, err := ln.ListConfigs(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error during the list config rpc command: %s", err)
 		return nil, err
@@ -368,7 +368,7 @@ func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelI
 	}
 
 	if !inCache {
-		node, err := ln.GetNode(lightning, &channelID)
+		node, err := ln.GetNode(lightning, channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error in command listNodes in makeChannelsSummary: %s", err)
 			return nil, err
