@@ -12,13 +12,15 @@ import (
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/ln"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/model"
 
 	"github.com/LNOpenMetrics/lnmetrics.utils/hash/sha256"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 	"github.com/LNOpenMetrics/lnmetrics.utils/utime"
 
 	sysinfo "github.com/elastic/go-sysinfo/types"
-	"github.com/vincenzopalazzo/glightning/glightning"
+	cln4go "github.com/vincenzopalazzo/cln4go/client"
 )
 
 // NewMetricOne This method is required by the interface
@@ -45,7 +47,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		ChannelsInfo: make(map[string]*statusChannel),
 		Color:        "",
 		Storage:      storage,
-		PeerSnapshot: make(map[string]*glightning.Peer),
+		PeerSnapshot: make(map[string]*model.ListPeersPeer),
 	}
 }
 
@@ -81,9 +83,9 @@ func (instance *MetricOne) Migrate(payload map[string]any) error {
 	return nil
 }
 
-func (instance *MetricOne) snapshotListPeers(lightning *glightning.Lightning) error {
-	instance.PeerSnapshot = make(map[string]*glightning.Peer)
-	listPeers, err := lightning.ListPeers()
+func (instance *MetricOne) snapshotListPeers(lightning cln4go.Client) error {
+	instance.PeerSnapshot = make(map[string]*model.ListPeersPeer)
+	listPeers, err := ln.ListPeers(lightning, nil)
 	if err != nil {
 		log.GetInstance().Errorf("listpeer terminated with an error %s", err)
 		return err
@@ -100,11 +102,12 @@ func (instance *MetricOne) snapshotListPeers(lightning *glightning.Lightning) er
 }
 
 // Generic Plugin callback that it is run each time that the plugin need to recording a new event.
-func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Lightning) (*status, error) {
+func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*status, error) {
 	if err := instance.snapshotListPeers(lightning); err != nil {
 		return nil, err
 	}
-	listFunds, err := lightning.ListFunds()
+	listFunds, err := ln.ListFunds(lightning)
+
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
@@ -114,7 +117,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		// We admit this error here, we print only some log information.
 	}
 
-	listForwards, err := lightning.ListForwards()
+	listForwards, err := ln.ListForwards(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
@@ -134,7 +137,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 		// and this mean that can be out of the gossip map.
 	}
 
-	listConfig, err := lightning.ListConfigs()
+	listConfig, err := ln.ListConfigs(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error during the list config rpc command: %s", err)
 		return nil, err
@@ -163,8 +166,8 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning *glightning.Light
 }
 
 // OnInit One time callback called from the lightning implementation
-func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
-	getInfo, err := lightning.GetInfo()
+func (instance *MetricOne) OnInit(lightning cln4go.Client) error {
+	getInfo, err := ln.GetInfo(lightning)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
 		return err
@@ -202,7 +205,7 @@ func (instance *MetricOne) OnInit(lightning *glightning.Lightning) error {
 	return instance.MakePersistent()
 }
 
-func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
+func (instance *MetricOne) Update(lightning cln4go.Client) error {
 	status, err := instance.onEvent("on_update", lightning)
 	if err != nil {
 		return err
@@ -215,8 +218,7 @@ func (instance *MetricOne) Update(lightning *glightning.Lightning) error {
 	return instance.MakePersistent()
 }
 
-func (instance *MetricOne) UpdateWithMsg(message *Msg,
-	lightning *glightning.Lightning) error {
+func (instance *MetricOne) UpdateWithMsg(message *Msg, lightning cln4go.Client) error {
 	if event, ok := message.params["event"]; ok {
 		status, err := instance.onEvent(fmt.Sprintf("%s", event), lightning)
 		if err != nil {
@@ -241,7 +243,7 @@ func (instance *MetricOne) MakePersistent() error {
 	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson)
 }
 
-func (instance *MetricOne) OnStop(msg *Msg, lightning *glightning.Lightning) error {
+func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	// FIXME: Check if the values are empty, if yes, try a solution  to avoid to push empty payload.
 	var lastMetric MetricOne
@@ -281,7 +283,7 @@ func (instance *MetricOne) ToJSON() (string, error) {
 }
 
 // InitOnRepo Contact the server and make an init the node.
-func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
+func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	log.GetInstance().Info("Init plugin on repository")
 	err := client.GetNodeMetadata(instance.NodeID, instance.Network)
 	if err != nil {
@@ -303,8 +305,8 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 		}
 
 		toSign := sha256.SHA256(&payload)
-		log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
-		signPayload, err := lightning.SignMessage(toSign)
+		log.GetInstance().Infof("Hash of the paylad: %s", toSign)
+		signPayload, err := ln.SignMessage(lightning, &toSign)
 		if err != nil {
 			return err
 		}
@@ -323,14 +325,14 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning *glightn
 }
 
 // UploadOnRepo Contact the server and make an update request
-func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *glightning.Lightning) error {
+func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	payload, err := instance.ToJSON()
 	if err != nil {
 		return err
 	}
 	toSign := sha256.SHA256(&payload)
-	log.GetInstance().Infof("Hash of the paylad: %s", toSign)
-	signPayload, err := lightning.SignMessage(toSign)
+	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
+	signPayload, err := ln.SignMessage(lightning, &toSign)
 	if err != nil {
 		return err
 	}
@@ -349,7 +351,7 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning *gligh
 }
 
 // checkChannelInCache check if a node with channel_id is inside the gossip map or in the cache
-func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, channelID string) (*cache.NodeInfoCache, error) {
+func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelID string) (*cache.NodeInfoCache, error) {
 	var nodeInfo cache.NodeInfoCache
 	inCache := false
 	if cache.GetInstance().IsInCache(channelID) {
@@ -366,7 +368,7 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 	}
 
 	if !inCache {
-		node, err := lightning.GetNode(channelID)
+		node, err := ln.GetNode(lightning, channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error in command listNodes in makeChannelsSummary: %s", err)
 			return nil, err
@@ -385,7 +387,7 @@ func (instance *MetricOne) checkChannelInCache(lightning *glightning.Lightning, 
 }
 
 // makeChannelsSummary Make a summary of all the channels information that the node have a channels with.
-func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, channels []*glightning.FundingChannel) (*ChannelsSummary, error) {
+func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels []*model.ListFundsChannel) (*ChannelsSummary, error) {
 	channelsSummary := &ChannelsSummary{
 		TotChannels: 0,
 		Summary:     make([]*ChannelSummary, 0),
@@ -397,17 +399,25 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 			if channel.State == "ONCHAIN" {
 				// When the channel is on chain, it is not longer a channel,
 				// it stay in the listfunds for 100 block (bitcoin time) after the closing commitment
-				log.GetInstance().Debugf("The channel with ID %s has ON_CHAIN status", channel.Id)
+				log.GetInstance().Debugf("The channel with ID %s has ON_CHAIN status", channel.PeerId)
 				continue
 			}
 
+			// in some case the state can be undefined because
+			// not yet defined, not sure how much is real this case
+			// but it is good to keep this in mind!
+			shortChannelId := "undefined"
+			if channel.ShortChannelId != nil {
+				shortChannelId = *channel.ShortChannelId
+			}
+
 			channelSummary := &ChannelSummary{
-				NodeId:    channel.Id,
-				ChannelId: channel.ShortChannelId,
+				NodeId:    channel.PeerId,
+				ChannelId: shortChannelId,
 				State:     channel.State,
 			}
 
-			nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
+			nodeInfo, err := instance.checkChannelInCache(lightning, channel.PeerId)
 			if err != nil {
 				// the node is not in the cache and in the gossip map
 				// skip this should be fine too
@@ -424,7 +434,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning *glightning.Lightning, 
 	return channelsSummary, nil
 }
 
-func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, forwards []glightning.Forwarding) (*PaymentsSummary, error) {
+func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards []*model.Forward) (*PaymentsSummary, error) {
 	statusPayments := PaymentsSummary{
 		Completed: 0,
 		Failed:    0,
@@ -445,7 +455,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning *glightning.Lightning, 
 }
 
 // private method of the module
-func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, channels []*glightning.FundingChannel, event string) error {
+func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels []*model.ListFundsChannel, event string) error {
 	cache := make(map[string]bool)
 	cachePing := make(map[string]int64)
 	for _, channel := range channels {
@@ -461,13 +471,17 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
 				return err
 			}
-			directions, err := instance.getChannelDirections(lightning, channel.ShortChannelId)
+			if channel.ShortChannelId == nil {
+				log.GetInstance().Errorf("short channel id not defined for node %s on state %s", channel.PeerId, channel.State)
+				return fmt.Errorf("short channel id is not defined for node %s on state %s", channel.PeerId, channel.State)
+			}
+			directions, err := instance.getChannelDirections(lightning, *channel.ShortChannelId)
 			if err != nil {
 				log.GetInstance().Errorf("Error: %s", err)
 				return nil
 			}
 			for _, direction := range directions {
-				key := strings.Join([]string{channel.ShortChannelId, direction}, "_")
+				key := strings.Join([]string{*channel.ShortChannelId, direction}, "_")
 				cache[key] = true
 			}
 		}
@@ -488,10 +502,10 @@ func (instance *MetricOne) collectInfoChannels(lightning *glightning.Lightning, 
 	return nil
 }
 
-func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning, channelID string) ([]string, error) {
+func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channelID string) ([]string, error) {
 	directions := make([]string, 0)
 
-	channels, err := lightning.GetChannel(channelID)
+	channels, err := ln.ListChannels(lightning, &channelID)
 
 	if err != nil {
 		// This should happen when a channel is no longer inside the gossip map.
@@ -510,29 +524,34 @@ func (instance *MetricOne) getChannelDirections(lightning *glightning.Lightning,
 	return directions, nil
 }
 
-func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
-	channel *glightning.FundingChannel, event string, cachePing map[string]int64) error {
+func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
+	channel *model.ListFundsChannel, event string, cachePing map[string]int64) error {
 
 	shortChannelId := channel.ShortChannelId
-	timestamp, found := cachePing[channel.Id]
+	timestamp, found := cachePing[channel.PeerId]
 	// be nicer with the node and do not stress too much by pinging the node too much!
 	if !found {
 		timestamp = 0
 		// avoid storing the wrong data related to the gossip delay.
-		if instance.peerConnected(lightning, channel.Id) {
+		if instance.peerConnected(lightning, channel.PeerId) {
 			timestamp = time.Now().Unix()
 		}
-		cachePing[channel.Id] = timestamp
+		cachePing[channel.PeerId] = timestamp
 	}
 
-	directions, err := instance.getChannelDirections(lightning, shortChannelId)
+	if channel.ShortChannelId == nil {
+		log.GetInstance().Errorf("short channel id not defined for node %s on state %s", channel.PeerId, channel.State)
+		return fmt.Errorf("short channel id is not defined for node %s on state %s", channel.PeerId, channel.State)
+	}
+
+	directions, err := instance.getChannelDirections(lightning, *shortChannelId)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return err
 	}
 
 	for _, direction := range directions {
-		key := strings.Join([]string{shortChannelId, direction}, "_")
+		key := strings.Join([]string{*shortChannelId, direction}, "_")
 		infoChannel, found := instance.ChannelsInfo[key]
 
 		infoMap, err := instance.getChannelInfo(lightning, channel, infoChannel)
@@ -559,11 +578,11 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 			upTimes := make([]*channelStatus, 1)
 			upTimes[0] = &channelStat
 			newInfoChannel := statusChannel{
-				ChannelId:  shortChannelId,
+				ChannelId:  *shortChannelId,
 				NodeId:     info.NodeId,
 				NodeAlias:  info.Alias,
 				Color:      info.Color,
-				Capacity:   channel.ChannelSatoshi,
+				Capacity:   channel.TotAmountMsat(),
 				LastUpdate: info.LastUpdate,
 				Forwards:   info.Forwards,
 				UpTimes:    upTimes,
@@ -574,7 +593,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 			}
 			instance.ChannelsInfo[key] = &newInfoChannel
 		} else {
-			infoChannel.Capacity = channel.ChannelSatoshi
+			infoChannel.Capacity = channel.TotAmountMsat()
 			infoChannel.UpTimes = append(infoChannel.UpTimes, &channelStat)
 			infoChannel.Color = info.Color
 			infoChannel.Online = channel.Connected
@@ -585,7 +604,7 @@ func (instance *MetricOne) collectInfoChannel(lightning *glightning.Lightning,
 	return nil
 }
 
-func (instance *MetricOne) peerConnected(lightning *glightning.Lightning, nodeId string) bool {
+func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string) bool {
 	peer, found := instance.PeerSnapshot[nodeId]
 	if !found {
 		log.GetInstance().Infof("peer with node id %s not found", nodeId)
@@ -594,13 +613,14 @@ func (instance *MetricOne) peerConnected(lightning *glightning.Lightning, nodeId
 	return peer.Connected
 }
 
-func NewUnknownChannel() *glightning.Channel {
-	return &glightning.Channel{
-		LastUpdate:               0,
-		BaseFeeMillisatoshi:      0,
-		FeePerMillionth:          0,
-		HtlcMinimumMilliSatoshis: "0msat",
-		HtlcMaximumMilliSatoshis: "0msat",
+func NewUnknownChannel() *model.ListChannelsChannel {
+	return &model.ListChannelsChannel{
+		LastUpdate:          0,
+		BaseFeeMillisatoshi: 0,
+		FeePerMillionth:     0,
+		// FIXME: check the deprecate API there
+		HtlcMinimumMsat: 0,
+		HtlcMaximumMsat: 0,
 	}
 }
 
@@ -613,44 +633,45 @@ func NewUnknownChannel() *glightning.Channel {
 // as return:
 // map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is splitted.
 // error: If any error during this operation occurs
-func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
-	channel *glightning.FundingChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
+func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
+	channel *model.ListFundsChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
 
 	result := make(map[string]*ChannelInfo)
 
-	subChannels, err := lightning.GetChannel(channel.ShortChannelId)
+	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
 
 	// This error should never happen
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
-		subChannels = []*glightning.Channel{NewUnknownChannel()}
+		subChannels = []*model.ListChannelsChannel{NewUnknownChannel()}
 	}
 
 	for _, subChannel := range subChannels {
 		// The private channel do not need to be included inside the metrics
-		// FIXME: when we will be able to have also a offline mode
-		if !subChannel.IsPublic {
+		// FIXME: when we will be able to have also a offline mode these
+		// channels can be included
+		if !subChannel.Public {
 			continue
 		}
-		nodeInfo, err := instance.checkChannelInCache(lightning, channel.Id)
+		nodeInfo, err := instance.checkChannelInCache(lightning, channel.PeerId)
 		if err != nil {
 			continue
 		}
 		// Init the default data here
 		channelInfo := &ChannelInfo{
-			NodeId:     channel.Id,
+			NodeId:     channel.PeerId,
 			Alias:      "unknown",
 			Color:      "unknown",
 			Direction:  "UNKNOWN",
-			LastUpdate: subChannel.LastUpdate,
+			LastUpdate: uint(subChannel.LastUpdate),
 			Forwards:   make([]*PaymentInfo, 0),
 			Fee: &ChannelFee{
 				Base:    subChannel.BaseFeeMillisatoshi,
 				PerMSat: subChannel.FeePerMillionth,
 			},
 			Limits: &ChannelLimits{
-				Min: getMSatValue(subChannel.HtlcMinimumMilliSatoshis),
-				Max: getMSatValue(subChannel.HtlcMaximumMilliSatoshis),
+				Min: getMSatValue(*subChannel.HtlcMinMsat()),
+				Max: getMSatValue(*subChannel.HtlcMaxMsat()),
 			},
 		}
 
@@ -678,7 +699,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 		channelInfo.Alias = nodeInfo.Alias
 		channelInfo.Color = nodeInfo.Color
 
-		listForwards, err := lightning.ListForwards()
+		listForwards, err := ln.ListForwards(lightning)
 
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error during the listForwards call: %s", err))
@@ -704,7 +725,8 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 
 			// if our channel is where the payment is trying to go
 			// we change the direction from OUTCOMING to INCOOMING
-			if channel.ShortChannelId == forward.OutChannel {
+			// FIXME: make sure that the short_channel_id is not null
+			if channel.ShortChannelId != nil && *channel.ShortChannelId == forward.OutChannel {
 				paymentInfo.Direction = ChannelDirections[1]
 			}
 
@@ -714,12 +736,12 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 			if channelInfo.Direction != "UNKNOWN" &&
 				paymentInfo.Direction != channelInfo.Direction {
 				log.GetInstance().Infof("New forwarding found but in the wrong direction, %s -> %s", forward.InChannel, forward.OutChannel)
-				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
 				log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 				continue
 			}
 			log.GetInstance().Infof("New forwarding found but in the correct direction, %s -> %s", forward.InChannel, forward.OutChannel)
-			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", channel.ShortChannelId, channelInfo.Alias)
+			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
 			log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 
 			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
@@ -736,7 +758,7 @@ func (instance *MetricOne) getChannelInfo(lightning *glightning.Lightning,
 				}
 				paymentInfo := channelInfo.Forwards[len(channelInfo.Forwards)-1]
 				paymentInfo.FailureReason = forward.FailReason
-				paymentInfo.FailureCode = forward.FailCode
+				paymentInfo.FailureCode = int(*forward.FailCode)
 			default:
 				return nil, fmt.Errorf("status %s unexpected", forward.Status)
 			}

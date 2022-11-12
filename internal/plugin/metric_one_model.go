@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
-	"github.com/vincenzopalazzo/glightning/glightning"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/model"
 )
 
 // PaymentInfo Information about the Payment forward by the node
@@ -198,7 +198,7 @@ type MetricOne struct {
 	// Storage reference
 	Storage db.PluginDatabase `json:"-"`
 
-	PeerSnapshot map[string]*glightning.Peer `json:"-"`
+	PeerSnapshot map[string]*model.ListPeersPeer `json:"-"`
 }
 
 func (instance MetricOne) MarshalJSON() ([]byte, error) {

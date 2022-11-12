@@ -4,91 +4,74 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vincenzopalazzo/glightning/jrpc2"
+	cln4go "github.com/vincenzopalazzo/cln4go/plugin"
 )
 
-type MetricOneRpcMethod struct {
-	StartPeriod string `json:"start"`
-	EndPeriod   string `json:"end"`
+type MetricOneRpcMethod[T MetricsPluginState] struct{}
 
-	// Metric Reference
-	plugin *MetricsPlugin `json:"-"`
+func NewMetricPlugin[T MetricsPluginState]() *MetricOneRpcMethod[T] {
+	return &MetricOneRpcMethod[T]{}
 }
 
-func (instance *MetricOneRpcMethod) Name() string {
-	return "metric_one"
-}
-
-func NewMetricPlugin(plugin *MetricsPlugin) *MetricOneRpcMethod {
-	return &MetricOneRpcMethod{
-		StartPeriod: "",
-		EndPeriod:   "",
-		plugin:      plugin,
-	}
-}
-
-func (instance *MetricOneRpcMethod) New() any {
-	return NewMetricPlugin(instance.plugin)
-}
-
-func (instance *MetricOneRpcMethod) Call() (jrpc2.Result, error) {
-	metricOne, found := instance.plugin.Metrics[1]
-
+func (instance *MetricOneRpcMethod[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
+	// FIXME: take variable from the payload.
+	metricOne, found := plugin.GetState().GetMetrics()[1]
+	var result map[string]any
 	if !found {
 		return nil, fmt.Errorf("Metric with id %d not found", 1)
 	}
 
-	if instance.StartPeriod == "" &&
-		instance.EndPeriod == "" {
-		return nil, fmt.Errorf("Missing at list the start parameter in the rpc method")
+	// FIXME: improve the metric API to include the ToMap call
+	resultStr, err := json.Marshal(metricOne)
+	if err != nil {
+		return nil, err
 	}
 
-	if instance.StartPeriod == "now" {
-		return metricOne, nil
+	if err != json.Unmarshal(resultStr, &result) {
+		return nil, err
 	}
 
-	if instance.StartPeriod == "last" {
-		jsonValue, err := instance.plugin.Storage.LoadLastMetricOne()
+	startPeriod, startFound := payload["start"]
+	//endPeriod, endFound := payload["end"]
+
+	if !startFound {
+		return nil, fmt.Errorf("methor arg missing: need to specify the start period")
+	}
+
+	if startPeriod.(string) == "now" {
+		// FIXME: encode the result inside a map
+		return result, nil
+	}
+
+	if startPeriod.(string) == "last" {
+		jsonValue, err := plugin.GetState().GetStorage().LoadLastMetricOne()
 		if err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(*jsonValue), &metricOne); err != nil {
 			return nil, err
 		}
-		return metricOne, nil
+
+		// FIXME: encode the result inside a map
+		return result, nil
 	}
 
 	return nil, fmt.Errorf("We don't support the filter operation right now")
 }
 
 // ForceUpdateRPC enable the force update command
-type ForceUpdateRPC struct {
-	// the instance of the plugin
-	plugin *MetricsPlugin
-}
+type ForceUpdateRPC[T MetricsPluginState] struct{}
 
-func NewForceUpdateRPC(plugin *MetricsPlugin) *ForceUpdateRPC {
-	return &ForceUpdateRPC{plugin}
-}
-
-func (instance *ForceUpdateRPC) New() any {
-	return instance
-}
-
-func (instance *ForceUpdateRPC) Name() string {
-	return "lnmetrics-force-update"
-}
-
-func (instance *ForceUpdateRPC) Call() (jrpc2.Result, error) {
-	for _, metric := range instance.plugin.Metrics {
+func (instance *ForceUpdateRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
+	for _, metric := range plugin.GetState().GetMetrics() {
 		msg := Msg{
 			cmd:    "plugin_rpc_method",
 			params: map[string]any{"event": "on_force_update"},
 		}
-		instance.plugin.callUpdateOnMetric(metric, &msg)
+		plugin.GetState().CallUpdateOnMetric(metric, &msg)
 	}
-	response := struct {
-		result string
-	}{result: "force call update on all the metrics succeeded"}
+	response := map[string]any{
+		"result": "force call update on all the metrics succeeded",
+	}
 	return response, nil
 }
