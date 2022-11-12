@@ -21,6 +21,16 @@ func (instance *MetricOneRpcMethod[T]) Call(plugin *cln4go.Plugin[T], payload ma
 		return nil, fmt.Errorf("Metric with id %d not found", 1)
 	}
 
+	// FIXME: improve the metric API to include the ToMap call
+	resultStr, err := json.Marshal(metricOne)
+	if err != nil {
+		return nil, err
+	}
+
+	if err != json.Unmarshal(resultStr, &result) {
+		return nil, err
+	}
+
 	startPeriod, startFound := payload["start"]
 	//endPeriod, endFound := payload["end"]
 
