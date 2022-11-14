@@ -1,12 +1,22 @@
 package main
 
 import (
+	"runtime/debug"
+
 	metrics "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
+	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
 var metricsPlugin metrics.MetricsPlugin
 
 func main() {
+	defer func() {
+		if x := recover(); x != nil {
+			// recovering from a panic; x contains whatever was passed to panic()
+			log.GetInstance().Errorf("run time panic: %v", x)
+			log.GetInstance().Errorf("stacktrace %s", string(debug.Stack()))
+		}
+	}()
 
 	// FIXME: I can remove the Plugin?
 	metricsPlugin = metrics.MetricsPlugin{Plugin: nil,
