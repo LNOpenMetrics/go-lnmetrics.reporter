@@ -18,8 +18,7 @@ func main() {
 		}
 	}()
 
-	// FIXME: I can remove the Plugin?
-	metricsPlugin = metrics.MetricsPlugin{Plugin: nil,
+	metricsPlugin = metrics.MetricsPlugin{
 		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
 	plugin, err := metrics.ConfigureCLNPlugin[*metrics.MetricsPlugin](&metricsPlugin)

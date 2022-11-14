@@ -6,17 +6,16 @@ import (
 
 	cron "github.com/robfig/cron/v3"
 	cln4go "github.com/vincenzopalazzo/cln4go/client"
-	"github.com/vincenzopalazzo/glightning/glightning"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
 // FIXME: move this to a generics to set the Client
 // in this way we could support different implementation
 type MetricsPlugin struct {
-	Plugin    *glightning.Plugin
 	Metrics   map[int]Metric
 	Rpc       *cln4go.UnixRPC
 	Cron      *cron.Cron
@@ -34,6 +33,7 @@ func (self *MetricsPlugin) NewClient(path string) error {
 	if err != nil {
 		return err
 	}
+	rpc.SetEncoder(&json.FastJSON{})
 	self.Rpc = rpc
 	return nil
 }

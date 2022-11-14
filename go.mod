@@ -15,6 +15,7 @@ require (
 
 require (
 	github.com/elastic/go-windows v1.0.1 // indirect
+	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

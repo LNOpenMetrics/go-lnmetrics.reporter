@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/cache"
+	jsonv2 "github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 	"github.com/elastic/go-sysinfo"
 	cln4go "github.com/vincenzopalazzo/cln4go/plugin"
@@ -13,6 +14,7 @@ import (
 
 func ConfigureCLNPlugin[T MetricsPluginState](state T) (*cln4go.Plugin[T], error) {
 	plugin := cln4go.New(state, false, OnInit[T])
+	plugin.SetEncoder(&jsonv2.FastJSON{})
 
 	plugin.RegisterOption("lnmetrics-urls", "string", "", "URLs of remote servers", false)
 	plugin.RegisterOption("lnmetrics-noproxy", "bool", "false",
