@@ -1,6 +1,10 @@
 package json
 
-import json "github.com/goccy/go-json"
+import (
+	"fmt"
+
+	json "github.com/goccy/go-json"
+)
 
 type FastJSON struct{}
 
@@ -22,5 +26,8 @@ func (self *FastJSON) DecodeFromString(jsonStr *string, obj any) error {
 }
 
 func (self *FastJSON) DecodeFromBytes(jsonByte []byte, obj any) error {
+	if len(jsonByte) == 0 {
+		return fmt.Errorf("encoding a null byte array")
+	}
 	return json.Unmarshal(jsonByte, &obj)
 }
