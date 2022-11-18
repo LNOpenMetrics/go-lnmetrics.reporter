@@ -10,6 +10,7 @@ import (
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/trace"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
@@ -34,6 +35,7 @@ func (self *MetricsPlugin) NewClient(path string) error {
 		return err
 	}
 	rpc.SetEncoder(&json.FastJSON{})
+	rpc.SetTracer(&trace.Tracer{})
 	self.Rpc = rpc
 	return nil
 }
