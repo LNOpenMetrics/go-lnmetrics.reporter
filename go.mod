@@ -8,8 +8,9 @@ require (
 	github.com/goccy/go-json v0.9.11
 	github.com/kinbiko/jsonassert v1.1.1
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221029141026-74f2f7d93d0d
-	github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221029141026-74f2f7d93d0d
+	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221118081250-4df27b5f7ad7
+	github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221118081250-4df27b5f7ad7
+	github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221118081250-4df27b5f7ad7
 	golang.org/x/net v0.2.0
 )
 
@@ -21,9 +22,7 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
-	github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221029141026-74f2f7d93d0d // indirect
-	github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221029141026-74f2f7d93d0d // indirect
-	github.com/vincenzopalazzo/glightning v0.8.3-0.20211027092546-52b0b2cd4373 // indirect
+	github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221118145642-58377b3f7666 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	howett.net/plist v1.0.0 // indirect
 )

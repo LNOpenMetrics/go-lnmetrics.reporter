@@ -143,14 +143,35 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 		return nil, err
 	}
 
+	minCap, found := listConfig["min-capacity-sat"]
+	if !found {
+		minCap = float64(-1)
+	} else {
+		minCap = minCap.(float64)
+	}
 	nodeLimits := &ChannelLimits{
-		Min: int64(listConfig["min-capacity-sat"].(float64)),
+		Min: int64(minCap.(float64)),
 		Max: 0, // FIXME: Where is it the max? there is no max so I can put 0 here?
 	}
 
+	// FIXME: add a map utils to the the value of the default one
+	feeBase, found := listConfig["fee-base"]
+	if !found {
+		feeBase = float64(-1)
+	} else {
+		feeBase = feeBase.(float64)
+	}
+
+	feePerSat, found := listConfig["fee-per-satoshi"]
+	if !found {
+		feePerSat = float64(-1)
+	} else {
+		feePerSat = feePerSat.(float64)
+	}
+
 	nodeFee := &ChannelFee{
-		Base:    uint64(listConfig["fee-base"].(float64)),
-		PerMSat: uint64(listConfig["fee-per-satoshi"].(float64)),
+		Base:    uint64(feeBase.(float64)),
+		PerMSat: uint64(feePerSat.(float64)),
 	}
 
 	status := &status{
