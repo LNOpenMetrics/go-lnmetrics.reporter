@@ -151,10 +151,10 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 	}
 	nodeLimits := &ChannelLimits{
 		Min: int64(minCap.(float64)),
-		Max: 0, // FIXME: Where is it the max? there is no max so I can put 0 here?
+		Max: -1, // FIXME: Where is it the max? there is no max so I can put -1 here?
 	}
 
-	// FIXME: add a map utils to the the value of the default one
+	// FIXME: add a map util to the the value of the default one
 	feeBase, found := listConfig["fee-base"]
 	if !found {
 		feeBase = float64(-1)
