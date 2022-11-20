@@ -145,7 +145,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 
 	minCap, found := listConfig["min-capacity-sat"]
 	if !found {
-		minCap = float64(-1)
+		minCap = float64(0)
 	} else {
 		minCap = minCap.(float64)
 	}
@@ -157,14 +157,14 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 	// FIXME: add a map util to the the value of the default one
 	feeBase, found := listConfig["fee-base"]
 	if !found {
-		feeBase = float64(-1)
+		feeBase = float64(0)
 	} else {
 		feeBase = feeBase.(float64)
 	}
 
 	feePerSat, found := listConfig["fee-per-satoshi"]
 	if !found {
-		feePerSat = float64(-1)
+		feePerSat = float64(0)
 	} else {
 		feePerSat = feePerSat.(float64)
 	}
