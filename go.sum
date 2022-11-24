@@ -44,10 +44,14 @@ github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5Cc
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
+github.com/vincenzopalazzo/cln4go v0.0.1-beta.6 h1:Old64QOgyJ7UXBJjbAJpqBE/5ajsbDS6tvMUAk6GwNc=
+github.com/vincenzopalazzo/cln4go v0.0.1-beta.6/go.mod h1:2NnveaBEhWeXc6SAyTLGIYRJsVq+5RjTRKh105b8Y2M=
 github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221029141026-74f2f7d93d0d h1:w3wR8NcWxzr07oTKWmsLdSKm+wT++f4DP3W0pj3Ux04=
 github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221029141026-74f2f7d93d0d/go.mod h1:2NnveaBEhWeXc6SAyTLGIYRJsVq+5RjTRKh105b8Y2M=
 github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221118145642-58377b3f7666 h1:ne/tJKPjzPU8WrSG2EiCEive19e5UP73yKx5kkWdXHA=
 github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221118145642-58377b3f7666/go.mod h1:2NnveaBEhWeXc6SAyTLGIYRJsVq+5RjTRKh105b8Y2M=
+github.com/vincenzopalazzo/cln4go v0.0.1-beta.7 h1:1E6qPqlykGxkYxv/wfXyobQk0AYNJ4wf6gNlnwhq5U0=
+github.com/vincenzopalazzo/cln4go v0.0.1-beta.7/go.mod h1:2NnveaBEhWeXc6SAyTLGIYRJsVq+5RjTRKh105b8Y2M=
 github.com/vincenzopalazzo/cln4go/client v0.0.0-20221029141026-74f2f7d93d0d/go.mod h1:7X4Hn+hwG3Ts/S3tgEqsowfUHZqyjx7/1z/8oDw7Muw=
 github.com/vincenzopalazzo/cln4go/client v0.0.0-20221118081250-4df27b5f7ad7 h1:BfE1+XXM3gZQ3H2up6yCS1ckDczjEvTcqw4NMlFHxSY=
 github.com/vincenzopalazzo/cln4go/client v0.0.0-20221118081250-4df27b5f7ad7/go.mod h1:7X4Hn+hwG3Ts/S3tgEqsowfUHZqyjx7/1z/8oDw7Muw=
