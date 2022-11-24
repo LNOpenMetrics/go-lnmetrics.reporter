@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
-	github.com/vincenzopalazzo/cln4go v0.0.1-beta.6.0.20221118145642-58377b3f7666 // indirect
+	github.com/vincenzopalazzo/cln4go v0.0.1-beta.7 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	howett.net/plist v1.0.0 // indirect
 )
