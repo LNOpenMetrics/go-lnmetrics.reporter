@@ -15,27 +15,49 @@ type ListFundsResp struct {
 }
 
 type ListFundsChannel struct {
-	PeerId                string  `json:"peer_id"`
-	State                 string  `json:"state"`
-	ShortChannelId        *string `json:"short_channel_id"`
-	Connected             bool    `json:"connected"`
-	InternalTotAmountMsat *uint64 `json:"amount_msat"`
-	// FIXME: check the format of the deprecated filed
-	InternalChannelTotalSat *string `json:"channel_total_sat"`
+	PeerId         string  `json:"peer_id"`
+	State          string  `json:"state"`
+	ShortChannelId *string `json:"short_channel_id"`
+	Connected      bool    `json:"connected"`
+	/// FIXME: where cln remove the deprecation period
+	/// for the string please put this as `uint64`.
+	InternalTotAmountMsat any `json:"amount_msat"`
 }
 
 // TotAmountMsat return a string version of the total capacity
 // of the channel.
 func (self *ListFundsChannel) TotAmountMsat() uint64 {
-	if self.InternalTotAmountMsat != nil {
-		return *self.InternalTotAmountMsat
-	}
-	intPart := strings.Split(*self.InternalChannelTotalSat, "msat")[0]
+	return ParseDeprecatedMsat(self.InternalTotAmountMsat)
+}
+
+// ParseMsatStrToInt  Parse a string that is the amount msat with the following form
+// "XXXmsat" the result from this function will be "xxx" as int
+func ParseMsatStrToInt(obj *string) (uint64, error) {
+	intPart := strings.Split(*obj, "msat")[0]
 	value, err := strconv.Atoi(intPart)
 	if err != nil {
-		log.GetInstance().Errorf("value %s parsing invalid %s", *self.InternalChannelTotalSat, err)
+		log.GetInstance().Errorf("value %s parsing invalid %s", *obj, err)
+		return 0, err
 	}
-	return uint64(value)
+	return uint64(value), nil
+}
+
+// / ParseDeprecatedMsat wrap the deprecated cast method
+// / inside a simple function.
+// FIXME: remove the function when core lightning will remove
+// the type string from the API.
+func ParseDeprecatedMsat(msat any) uint64 {
+	if msat != nil {
+		switch val := msat.(type) {
+		case string:
+			res, _ := ParseMsatStrToInt(&val)
+			return res
+		default:
+			res, _ := val.(float64)
+			return uint64(res)
+		}
+	}
+	return 0
 }
 
 type ListForwardsResp struct {
@@ -84,9 +106,8 @@ type ListChannelsChannel struct {
 	LastUpdate          uint64 `json:"last_update"`
 	BaseFeeMillisatoshi uint64 `json:"base_fee_millisatoshi"`
 	FeePerMillionth     uint64 `json:"fee_per_millionth"`
-	// FIXME: this was a string, so this wit the deprecate API should fails?
-	HtlcMinimumMsat uint64 `json:"htlc_minimum_msat"`
-	HtlcMaximumMsat uint64 `json:"htlc_maximum_msat"`
+	HtlcMinimumMsat     uint64 `json:"minimum_htlc_out_msat"`
+	HtlcMaximumMsat     uint64 `json:"maximum_htlc_out_msat"`
 }
 
 func (self *ListChannelsChannel) HtlcMinMsat() *string {
