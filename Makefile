@@ -5,7 +5,7 @@ BASE_DIR=/script
 OS=linux
 ARCH=386
 ARM=
-GORPC_COMMIT=latest
+GORPC_COMMIT=4471a927bb9937a45a9ece876c3e00f093727fc3
 
 default: fmt lint
 	$(CC) build -o $(NAME) cmd/go-lnmetrics.reporter/main.go
