@@ -18,3 +18,11 @@ func (self *Tracer) Info(msg string) {
 func (self *Tracer) Infof(msg string, args ...any) {
 	log.GetInstance().Infof(msg, args...)
 }
+
+func (self *Tracer) Trace(msg string) {
+	log.GetInstance().Error(msg)
+}
+
+func (self *Tracer) Tracef(msg string, args ...any) {
+	log.GetInstance().Errorf(msg, args...)
+}
