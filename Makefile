@@ -26,6 +26,9 @@ build:
 	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-lnmetrics.reporter/main.go
 
 dep:
+	$(CC) get -u all
+
+force:
 	$(CC) get -u github.com/LNOpenMetrics/lnmetrics.utils
 	$(CC) get -u github.com/vincenzopalazzo/cln4go@$(GORPC_COMMIT)
 	$(CC) mod vendor
