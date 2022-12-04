@@ -8,9 +8,9 @@ require (
 	github.com/goccy/go-json v0.10.0
 	github.com/kinbiko/jsonassert v1.1.1
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221203124527-4471a927bb99
-	github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221203124527-4471a927bb99
-	github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221203124527-4471a927bb99
+	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221204130123-926b287211f9
+	github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221204130123-926b287211f9
+	github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221204130123-926b287211f9
 	golang.org/x/net v0.2.0
 )
 
