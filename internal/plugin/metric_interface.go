@@ -7,6 +7,10 @@ import (
 	"github.com/vincenzopalazzo/cln4go/client"
 )
 
+const (
+	MetricOneID int = 1
+)
+
 // MetricsSupported mapping the internal id with the name of the metrics.
 // the id is passed by the plugin RPC name.
 var MetricsSupported map[int]string

@@ -15,31 +15,29 @@ func NewMetricPlugin[T MetricsPluginState]() *MetricOneRpcMethod[T] {
 
 func (instance *MetricOneRpcMethod[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
 	// FIXME: take variable from the payload.
-	metricOne, found := plugin.GetState().GetMetrics()[1]
+	metricOne, found := plugin.GetState().GetMetrics()[MetricOneID]
 	var result map[string]any
 	if !found {
 		return nil, fmt.Errorf("Metric with id %d not found", 1)
-	}
-
-	// FIXME: improve the metric API to include the ToMap call
-	resultStr, err := json.Marshal(metricOne)
-	if err != nil {
-		return nil, err
-	}
-
-	if err != json.Unmarshal(resultStr, &result) {
-		return nil, err
 	}
 
 	startPeriod, startFound := payload["start"]
 	//endPeriod, endFound := payload["end"]
 
 	if !startFound {
-		return nil, fmt.Errorf("methor arg missing: need to specify the start period")
+		return nil, fmt.Errorf("method argument missing: need to specify the start period")
 	}
 
 	if startPeriod.(string) == "now" {
-		// FIXME: encode the result inside a map
+		// FIXME: improve the metric API to include the ToMap call
+		resultStr, err := json.Marshal(metricOne)
+		if err != nil {
+			return nil, err
+		}
+
+		if err != json.Unmarshal(resultStr, &result) {
+			return nil, err
+		}
 		return result, nil
 	}
 
@@ -48,11 +46,11 @@ func (instance *MetricOneRpcMethod[T]) Call(plugin *cln4go.Plugin[T], payload ma
 		if err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(*jsonValue), &metricOne); err != nil {
+
+		if err := json.Unmarshal([]byte(*jsonValue), &result); err != nil {
 			return nil, err
 		}
 
-		// FIXME: encode the result inside a map
 		return result, nil
 	}
 
