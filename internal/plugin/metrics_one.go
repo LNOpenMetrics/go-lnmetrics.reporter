@@ -1,17 +1,18 @@
 package plugin
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/cache"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/cache"
+
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/ln"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/model"
 
@@ -48,6 +49,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		Color:        "",
 		Storage:      storage,
 		PeerSnapshot: make(map[string]*model.ListPeersPeer),
+		Encoder: &json.FastJSON{},
 	}
 }
 
@@ -272,7 +274,7 @@ func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal([]byte(*jsonLast), &lastMetric); err != nil {
+	if err := instance.Encoder.DecodeFromBytes([]byte(*jsonLast), &lastMetric); err != nil {
 		return err
 	}
 	now := time.Now().Unix()
@@ -295,7 +297,7 @@ func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 
 // ToJSON Convert the MetricOne structure to a JSON string.
 func (instance *MetricOne) ToJSON() (string, error) {
-	json, err := json.Marshal(&instance)
+	json, err := instance.Encoder.EncodeToByte(&instance)
 	if err != nil {
 		log.GetInstance().Error(err)
 		return "", err
@@ -382,7 +384,7 @@ func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelI
 			return nil, err
 		}
 		// FIXME: use the plugin encoder
-		if err := json.Unmarshal(bytes, &nodeInfo); err != nil {
+		if err := instance.Encoder.DecodeFromBytes(bytes, &nodeInfo); err != nil {
 			log.GetInstance().Errorf("Error %s", err)
 			return nil, err
 		}
@@ -586,6 +588,7 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 		info, infoFound := infoMap[direction]
 		if !infoFound {
 			log.GetInstance().Errorf("Error: channel not exist for direction %s", direction)
+			log.GetInstance().Errorf("info error: key channel info: %s", key)
 			// this should never happen, because we fill the channel with the same
 			// method that we derive the directions
 			return fmt.Errorf("error: channel not exist for direction %s", direction)
