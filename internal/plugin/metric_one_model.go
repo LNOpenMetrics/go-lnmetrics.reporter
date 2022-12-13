@@ -1,10 +1,12 @@
 package plugin
 
 import (
-	"encoding/json"
 	"strings"
 
+	"github.com/vincenzopalazzo/cln4go/comm/encoder"
+
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/model"
 )
 
@@ -188,7 +190,6 @@ type MetricOne struct {
 	UpTime []*status `json:"up_time"`
 
 	// map of informaton of channel information
-	// TODO: managing the dualfunding channels
 	ChannelsInfo map[string]*statusChannel `json:"-"`
 
 	// Last check of the plugin, useful to store the data
@@ -199,6 +200,8 @@ type MetricOne struct {
 	Storage db.PluginDatabase `json:"-"`
 
 	PeerSnapshot map[string]*model.ListPeersPeer `json:"-"`
+
+	Encoder encoder.JSONEncoder `json:"-"`
 }
 
 func (instance MetricOne) MarshalJSON() ([]byte, error) {
@@ -230,7 +233,7 @@ func (instance MetricOne) MarshalJSON() ([]byte, error) {
 	// Pass in an instance of the new type T to json.Marshal.
 	// For the embedded M field use a converted instance of the receiver.
 	// For the ChannelsInfo field use the channels slice.
-	return json.Marshal(T{
+	return instance.Encoder.EncodeToByte(T{
 		M:            M(instance),
 		ChannelsInfo: channels,
 	})
@@ -238,8 +241,11 @@ func (instance MetricOne) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON Same as MarshalJSON but in reverse.
 func (instance *MetricOne) UnmarshalJSON(data []byte) error {
+	if instance.Encoder == nil {
+		instance.Encoder = &json.FastJSON{}
+	}
 	var jsonMap map[string]any
-	if err := json.Unmarshal(data, &jsonMap); err != nil {
+	if err := instance.Encoder.DecodeFromBytes(data, &jsonMap); err != nil {
 		return err
 	}
 
@@ -247,7 +253,7 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	data, err := json.Marshal(jsonMap)
+	data, err := instance.Encoder.EncodeToByte(jsonMap)
 	if err != nil {
 		return err
 	}
@@ -257,7 +263,7 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 		ChannelsInfo []*statusChannel `json:"channels_info"`
 	}
 	t := T{M: (*M)(instance)}
-	if err := json.Unmarshal(data, &t); err != nil {
+	if err := instance.Encoder.DecodeFromBytes(data, &t); err != nil {
 		return err
 	}
 
