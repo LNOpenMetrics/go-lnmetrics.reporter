@@ -129,7 +129,7 @@ type ListNodesResp struct {
 }
 
 type ListNodesNode struct {
-	Id       string  `json:"id"`
+	Id       string  `json:"nodeid"`
 	Alias    string  `json:"alias"`
 	Color    string  `json:"color"`
 	Features *string `json:"features"`

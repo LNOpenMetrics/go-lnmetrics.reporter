@@ -381,6 +381,7 @@ func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelI
 			log.GetInstance().Errorf("Error %s:", err)
 			return nil, err
 		}
+		// FIXME: use the plugin encoder
 		if err := json.Unmarshal(bytes, &nodeInfo); err != nil {
 			log.GetInstance().Errorf("Error %s", err)
 			return nil, err
@@ -534,6 +535,7 @@ func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channel
 		return directions, nil
 	}
 
+	// FIXME: make a double check for the direction
 	for _, channel := range channels {
 		direction := ChannelDirections[1]
 		if channel.Source == instance.NodeID {
@@ -550,7 +552,7 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 
 	shortChannelId := channel.ShortChannelId
 	timestamp, found := cachePing[channel.PeerId]
-	// be nicer with the node and do not stress too much by pinging the node too much!
+	// be nicer with the node and do not stress too much by pinging it!
 	if !found {
 		timestamp = 0
 		// avoid storing the wrong data related to the gossip delay.
@@ -634,17 +636,6 @@ func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string)
 	return peer.Connected
 }
 
-func NewUnknownChannel() *model.ListChannelsChannel {
-	return &model.ListChannelsChannel{
-		LastUpdate:          0,
-		BaseFeeMillisatoshi: 0,
-		FeePerMillionth:     0,
-		// FIXME: check the deprecate API there
-		HtlcMinimumMsat: 0,
-		HtlcMaximumMsat: 0,
-	}
-}
-
 // Get the information about the channel that is open with the node id
 //
 // lightning: Is the Go API for c-lightning
@@ -660,11 +651,10 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 	result := make(map[string]*ChannelInfo)
 
 	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
-
 	// This error should never happen
 	if err != nil {
-		log.GetInstance().Errorf("Error: %s", err)
-		subChannels = []*model.ListChannelsChannel{NewUnknownChannel()}
+		log.GetInstance().Errorf("error from RPC: %s", err)
+		return nil, fmt.Errorf("error from RPC: %s", err)
 	}
 
 	for _, subChannel := range subChannels {
@@ -784,6 +774,7 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 				return nil, fmt.Errorf("status %s unexpected", forward.Status)
 			}
 		}
+
 		result[channelInfo.Direction] = channelInfo
 	}
 	return result, nil
