@@ -49,7 +49,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		Color:        "",
 		Storage:      storage,
 		PeerSnapshot: make(map[string]*model.ListPeersPeer),
-		Encoder: &json.FastJSON{},
+		Encoder:      &json.FastJSON{},
 	}
 }
 
@@ -108,22 +108,22 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 	if err := instance.snapshotListPeers(lightning); err != nil {
 		return nil, err
 	}
-	listFunds, err := ln.ListFunds(lightning)
 
+	listFunds, err := ln.ListFunds(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
-	if err := instance.collectInfoChannels(lightning, listFunds.Channels, nameEvent); err != nil {
-		log.GetInstance().Errorf("Error: %s", err)
-		// We admit this error here, we print only some log information.
-	}
+
+	// We allow this error here, the error will be recorded inside the log.
+	_ = instance.collectInfoChannels(lightning, listFunds.Channels, nameEvent)
 
 	listForwards, err := ln.ListForwards(lightning)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
+
 	statusPayments, err := instance.makePaymentsSummary(lightning, listForwards)
 	if err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
@@ -419,6 +419,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels
 
 	if len(channels) > 0 {
 		summary := make([]*ChannelSummary, 0)
+		/// FIXME: check if the channel is public
 		for _, channel := range channels {
 			if channel.State == "ONCHAIN" {
 				// When the channel is on chain, it is not longer a channel,
@@ -530,7 +531,6 @@ func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channel
 	directions := make([]string, 0)
 
 	channels, err := ln.ListChannels(lightning, &channelID)
-
 	if err != nil {
 		// This should happen when a channel is no longer inside the gossip map.
 		log.GetInstance().Errorf("Error: %s", err)
@@ -589,6 +589,8 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 		if !infoFound {
 			log.GetInstance().Errorf("Error: channel not exist for direction %s", direction)
 			log.GetInstance().Errorf("info error: key channel info: %s", key)
+			jsonStr, _ := instance.Encoder.EncodeToByte(instance.ChannelsInfo)
+			log.GetInstance().Errorf("channel info %s", string(jsonStr))
 			// this should never happen, because we fill the channel with the same
 			// method that we derive the directions
 			return fmt.Errorf("error: channel not exist for direction %s", direction)
@@ -652,7 +654,6 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 	channel *model.ListFundsChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
 
 	result := make(map[string]*ChannelInfo)
-
 	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
 	// This error should never happen
 	if err != nil {
@@ -705,7 +706,7 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 			}
 			// We avoid returning the error because it is correct that the node
 			// it is not up and running, this means that it is fine admit an
-			// error here.i
+			// error here.
 			result[channelInfo.Direction] = channelInfo
 			continue
 		}
@@ -714,7 +715,6 @@ func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
 		channelInfo.Color = nodeInfo.Color
 
 		listForwards, err := ln.ListForwards(lightning)
-
 		if err != nil {
 			log.GetInstance().Error(fmt.Sprintf("Error during the listForwards call: %s", err))
 			return nil, err
