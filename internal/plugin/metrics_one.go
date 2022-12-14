@@ -263,7 +263,11 @@ func (instance *MetricOne) MakePersistent() error {
 		log.GetInstance().Errorf("JSON error %s", err)
 		return err
 	}
-	return instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson)
+	if err := instance.Storage.StoreMetricOneSnapshot(instance.lastCheck, &instanceJson); err != nil {
+		return err
+	}
+	instance.resetState()
+	return nil
 }
 
 func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
@@ -305,6 +309,16 @@ func (instance *MetricOne) ToJSON() (string, error) {
 	return string(json), nil
 }
 
+// each time that the timeout is running out
+// we should reset the status of the plugin
+// in particular the status of the various cache
+// that will speed up the plugin.
+func (self *MetricOne) resetState() {
+	self.UpTime = make([]*status, 0)
+	self.ChannelsInfo = make(map[string]*statusChannel)
+	self.PeerSnapshot = make(map[string]*model.ListPeersPeer)
+}
+
 // InitOnRepo Contact the server and make an init the node.
 func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	log.GetInstance().Info("Init plugin on repository")
@@ -313,7 +327,6 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.C
 		// If we received an error from the find method, maybe
 		// the node it is not initialized on the server, and we
 		// can try to init it.
-
 		payload, err := instance.ToJSON()
 		if err != nil {
 			return err
@@ -341,10 +354,10 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.C
 		now := time.Now()
 		log.GetInstance().Info(fmt.Sprintf("Metric One:Initialized on server at %s", now.Format(time.RFC850)))
 		return nil
-	} else {
-		log.GetInstance().Info("Metric One: No initialization need, we simple tell to the server that we are back!")
-		return instance.UploadOnRepo(client, lightning)
 	}
+
+	log.GetInstance().Info("Metric One: No initialization need, we simple tell to the server that we are back!")
+	return instance.UploadOnRepo(client, lightning)
 }
 
 // UploadOnRepo Contact the server and make an update request
@@ -360,13 +373,11 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go
 		return err
 	}
 	if err := client.UploadMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
-		log.GetInstance().Errorf("Error %s: ", err)
+		log.GetInstance().Errorf("Error: %s", err)
 		return err
 	}
 
-	instance.UpTime = make([]*status, 0)
-	instance.ChannelsInfo = make(map[string]*statusChannel)
-
+	instance.resetState()
 	// Refactored this method in an utils functions
 	t := time.Now()
 	log.GetInstance().Infof("Metric One Upload at %s", t.Format(time.RFC850))
@@ -376,22 +387,17 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go
 // checkChannelInCache check if a node with channel_id is inside the gossip map or in the cache
 func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelID string) (*cache.NodeInfoCache, error) {
 	var nodeInfo cache.NodeInfoCache
-	inCache := false
 	if cache.GetInstance().IsInCache(channelID) {
 		bytes, err := cache.GetInstance().GetFromCache(channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error %s:", err)
 			return nil, err
 		}
-		// FIXME: use the plugin encoder
 		if err := instance.Encoder.DecodeFromBytes(bytes, &nodeInfo); err != nil {
 			log.GetInstance().Errorf("Error %s", err)
 			return nil, err
 		}
-		inCache = true
-	}
-
-	if !inCache {
+	} else {
 		node, err := ln.GetNode(lightning, channelID)
 		if err != nil {
 			log.GetInstance().Errorf("Error in command listNodes in makeChannelsSummary: %s", err)
@@ -638,6 +644,7 @@ func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string)
 		log.GetInstance().Infof("peer with node id %s not found", nodeId)
 		return false
 	}
+	log.GetInstance().Infof("peer `%s` is connected `%v`", nodeId, peer.Connected)
 	return peer.Connected
 }
 
