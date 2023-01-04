@@ -1,6 +1,6 @@
 {
   "package_name": "go-lnmetrics.reporter",
-  "version": "v0.0.5-rc3",
+  "version": "v0.0.6-rc1",
   "api": {
     "name": "github",
     "repository": "LNOpenMetrics/go-lnmetrics.reporter",
