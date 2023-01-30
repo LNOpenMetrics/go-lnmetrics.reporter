@@ -299,6 +299,20 @@ func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 	return nil
 }
 
+// ToMap encode the object into a map
+func (self *MetricOne) ToMap() (map[string]any, error) {
+	var result map[string]any
+	bytes, err := self.Encoder.EncodeToByte(self)
+	if err != nil {
+		return nil, err
+	}
+
+	if err != self.Encoder.DecodeFromBytes(bytes, &result) {
+		return nil, err
+	}
+	return result, nil
+}
+
 // ToJSON Convert the MetricOne structure to a JSON string.
 func (instance *MetricOne) ToJSON() (string, error) {
 	json, err := instance.Encoder.EncodeToByte(&instance)

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MetricOneID int = 1
+	RawLocalScoreID int = 1
 )
 
 // MetricsSupported mapping the internal id with the name of the metrics.
@@ -53,6 +53,9 @@ type Metric interface {
 
 	// UpdateWithMsg update the metric with the last information fo the node with some msg info
 	UpdateWithMsg(message *Msg, lightning client.Client) error
+
+	// ToMap convert the Metric object into a map
+	ToMap() (map[string]any, error)
 
 	// ToJSON convert the object into a json
 	ToJSON() (string, error)

@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"encoding/json"
 	"fmt"
 
 	cln4go "github.com/vincenzopalazzo/cln4go/plugin"
@@ -14,23 +13,11 @@ func NewRawLocalScoreRPC[T MetricsPluginState]() *RawLocalScoreRPC[T] {
 }
 
 func (instance *RawLocalScoreRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
-	metricOne, found := plugin.GetState().GetMetrics()[MetricOneID]
-	var result map[string]any
+	metric, found := plugin.GetState().GetMetrics()[RawLocalScoreID]
 	if !found {
 		return nil, fmt.Errorf("Metric with id %d not found", 1)
 	}
-
-	// FIXME: improve the metric API to include the ToMap call
-	resultStr, err := json.Marshal(metricOne)
-	if err != nil {
-		return nil, err
-	}
-
-	if err != json.Unmarshal(resultStr, &result) {
-		return nil, err
-	}
-
-	return result, nil
+	return metric.ToMap()
 }
 
 // ForceUpdateRPC enable the force update command
