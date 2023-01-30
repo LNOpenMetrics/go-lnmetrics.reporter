@@ -1,6 +1,6 @@
 // Package plugin implement all the necessary building blocks to implement
 // an open source metrics.
-package plugin
+package metrics
 
 import (
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MetricOneID int = 1
+	RawLocalScoreID int = 1
 )
 
 // MetricsSupported mapping the internal id with the name of the metrics.
@@ -54,6 +54,9 @@ type Metric interface {
 	// UpdateWithMsg update the metric with the last information fo the node with some msg info
 	UpdateWithMsg(message *Msg, lightning client.Client) error
 
+	// ToMap convert the Metric object into a map
+	ToMap() (map[string]any, error)
+
 	// ToJSON convert the object into a json
 	ToJSON() (string, error)
 
@@ -69,4 +72,11 @@ type Msg struct {
 	cmd string
 	// the map of parameter that the plugin need to feel.
 	params map[string]any
+}
+
+func NewMsg(cmd string, params map[string]any) Msg {
+	return Msg{
+		cmd:    cmd,
+		params: params,
+	}
 }

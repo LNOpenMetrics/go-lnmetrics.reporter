@@ -1,4 +1,4 @@
-package plugin
+package metrics
 
 import (
 	"strings"
@@ -53,7 +53,7 @@ type ChannelsSummary struct {
 }
 
 // Wrap all useful information about the own node
-type status struct {
+type Status struct {
 	//node_id  string    `json:node_id`
 	Event string `json:"event"`
 	// how many channels the node have
@@ -68,7 +68,7 @@ type status struct {
 	Limits *ChannelLimits `json:"limits"`
 }
 
-type channelStatus struct {
+type ChannelStatus struct {
 	// the event that originate this status check
 	Event string `json:"event"`
 	// Timestamp when the check is made
@@ -97,7 +97,7 @@ type ChannelFee struct {
 // has some channel open.
 //
 // Used in the MetricOne struct
-type statusChannel struct {
+type StatusChannel struct {
 	// short channel id
 	ChannelId string `json:"channel_id"`
 	// node id
@@ -111,7 +111,7 @@ type statusChannel struct {
 	// how payment the channel forwords
 	Forwards []*PaymentInfo `json:"forwards"`
 	// The node answer from the ping operation
-	UpTimes []*channelStatus `json:"up_time"`
+	UpTimes []*ChannelStatus `json:"up_time"`
 	// the node is ready to receive payment to share?
 	Online bool `json:"online"`
 	// last message (channel_update) received from the gossip
@@ -124,7 +124,7 @@ type statusChannel struct {
 	Limits *ChannelLimits `json:"limits"`
 }
 
-type osInfo struct {
+type OSInfo struct {
 	// Operating system name
 	OS string `json:"os"`
 	// Version of the Operating System
@@ -150,8 +150,8 @@ type NodeAddress struct {
 	Port uint   `json:"port"`
 }
 
-// MetricOne Main data structure that it is filled by the collection data phase.
-type MetricOne struct {
+// RawLocalScore Main data structure that it is filled by the collection data phase.
+type RawLocalScore struct {
 	// Internal id to identify the metric
 	id int `json:"-"`
 
@@ -175,7 +175,7 @@ type MetricOne struct {
 	Network string `json:"network"`
 
 	// OS host information
-	OSInfo *osInfo `json:"os_info"`
+	OSInfo *OSInfo `json:"os_info"`
 
 	// Node information, like version/implementation
 	NodeInfo *NodeInfo `json:"node_info"`
@@ -187,10 +187,10 @@ type MetricOne struct {
 	Timezone string `json:"timezone"`
 
 	// array of the up_time
-	UpTime []*status `json:"up_time"`
+	UpTime []*Status `json:"up_time"`
 
 	// map of informaton of channel information
-	ChannelsInfo map[string]*statusChannel `json:"-"`
+	ChannelsInfo map[string]*StatusChannel `json:"-"`
 
 	// Last check of the plugin, useful to store the data
 	// in the db by timestamp
@@ -204,7 +204,7 @@ type MetricOne struct {
 	Encoder encoder.JSONEncoder `json:"-"`
 }
 
-func (instance MetricOne) MarshalJSON() ([]byte, error) {
+func (instance RawLocalScore) MarshalJSON() ([]byte, error) {
 	// Declare a new type using the definition of MetricOne,
 	// the result of this is that M will have the same structure
 	// as MetricOne but none of its methods (this avoids recursive
@@ -213,7 +213,7 @@ func (instance MetricOne) MarshalJSON() ([]byte, error) {
 	// Also because M and MetricOne have the same structure you can
 	// easily convert between those two. e.g. M(MetricOne{}) and
 	// MetricOne(M{}) are valid expressions.
-	type M MetricOne
+	type M RawLocalScore
 
 	// Declare a new type that has a field of the "desired" type and
 	// also **embeds** the M type. Embedding promotes M's fields to T
@@ -221,11 +221,11 @@ func (instance MetricOne) MarshalJSON() ([]byte, error) {
 	// i.e. at the same level as the channels_info field.
 	type T struct {
 		M
-		ChannelsInfo []*statusChannel `json:"channels_info"`
+		ChannelsInfo []*StatusChannel `json:"channels_info"`
 	}
 
 	// move map elements to slice
-	channels := make([]*statusChannel, 0, len(instance.ChannelsInfo))
+	channels := make([]*StatusChannel, 0, len(instance.ChannelsInfo))
 	for _, channel := range instance.ChannelsInfo {
 		channels = append(channels, channel)
 	}
@@ -240,7 +240,7 @@ func (instance MetricOne) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON Same as MarshalJSON but in reverse.
-func (instance *MetricOne) UnmarshalJSON(data []byte) error {
+func (instance *RawLocalScore) UnmarshalJSON(data []byte) error {
 	if instance.Encoder == nil {
 		instance.Encoder = &json.FastJSON{}
 	}
@@ -257,17 +257,17 @@ func (instance *MetricOne) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	type M MetricOne
+	type M RawLocalScore
 	type T struct {
 		*M
-		ChannelsInfo []*statusChannel `json:"channels_info"`
+		ChannelsInfo []*StatusChannel `json:"channels_info"`
 	}
 	t := T{M: (*M)(instance)}
 	if err := instance.Encoder.DecodeFromBytes(data, &t); err != nil {
 		return err
 	}
 
-	instance.ChannelsInfo = make(map[string]*statusChannel, len(t.ChannelsInfo))
+	instance.ChannelsInfo = make(map[string]*StatusChannel, len(t.ChannelsInfo))
 	for _, channel := range t.ChannelsInfo {
 		key := strings.Join([]string{channel.ChannelId, channel.Direction}, "_")
 		instance.ChannelsInfo[key] = channel

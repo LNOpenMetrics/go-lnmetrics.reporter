@@ -2,6 +2,7 @@ package plugin
 
 import (
 	pluginDB "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/robfig/cron/v3"
 	cln4go "github.com/vincenzopalazzo/cln4go/client"
@@ -18,7 +19,7 @@ type MetricsPluginState interface {
 
 	RegisterOneTimeEvt(after string)
 
-	RegisterMetrics(id int, metrics Metric) error
+	RegisterMetrics(id int, metrics metrics.Metric) error
 
 	SetProxy(withProxy bool)
 
@@ -30,9 +31,9 @@ type MetricsPluginState interface {
 
 	GetCron() *cron.Cron
 
-	CallOnStopOnMetrics(metric Metric, msg *Msg)
+	CallOnStopOnMetrics(metric metrics.Metric, msg *metrics.Msg)
 
-	CallUpdateOnMetric(metric Metric, msg *Msg)
+	CallUpdateOnMetric(metric metrics.Metric, msg *metrics.Msg)
 
-	GetMetrics() map[int]Metric
+	GetMetrics() map[int]metrics.Metric
 }

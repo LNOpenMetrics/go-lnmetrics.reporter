@@ -8,6 +8,7 @@ import (
 	cln4go "github.com/vincenzopalazzo/cln4go/client"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/trace"
@@ -17,7 +18,7 @@ import (
 // FIXME: move this to a generics to set the Client
 // in this way we could support different implementation
 type MetricsPlugin struct {
-	Metrics   map[int]Metric
+	Metrics   map[int]metrics.Metric
 	Rpc       *cln4go.UnixRPC
 	Cron      *cron.Cron
 	Server    *graphql.Client
@@ -64,7 +65,7 @@ func (self *MetricsPlugin) GetServer() *graphql.Client {
 	return self.Server
 }
 
-func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
+func (plugin *MetricsPlugin) RegisterMetrics(id int, metric metrics.Metric) error {
 	_, ok := plugin.Metrics[id]
 	if ok {
 		log.GetInstance().Errorf("Metrics with is %d already registered.", id)
@@ -74,7 +75,7 @@ func (plugin *MetricsPlugin) RegisterMetrics(id int, metric Metric) error {
 	return nil
 }
 
-func (self *MetricsPlugin) GetMetrics() map[int]Metric {
+func (self *MetricsPlugin) GetMetrics() map[int]metrics.Metric {
 	return self.Metrics
 }
 
@@ -83,14 +84,14 @@ func (self *MetricsPlugin) GetCron() *cron.Cron {
 }
 
 // nolint
-func (plugin *MetricsPlugin) CallUpdateOnMetric(metric Metric, msg *Msg) {
+func (plugin *MetricsPlugin) CallUpdateOnMetric(metric metrics.Metric, msg *metrics.Msg) {
 	if err := metric.UpdateWithMsg(msg, plugin.Rpc); err != nil {
 		log.GetInstance().Errorf("Error during update metrics event: %s", err)
 	}
 }
 
 // callOnStopOnMetrics Call on stop operation on the node when the caller are shutdown itself.
-func (plugin *MetricsPlugin) CallOnStopOnMetrics(metric Metric, msg *Msg) {
+func (plugin *MetricsPlugin) CallOnStopOnMetrics(metric metrics.Metric, msg *metrics.Msg) {
 	err := metric.OnStop(msg, plugin.GetRpc())
 	if err != nil {
 		log.GetInstance().Error(err)
@@ -98,7 +99,7 @@ func (plugin *MetricsPlugin) CallOnStopOnMetrics(metric Metric, msg *Msg) {
 }
 
 // callUpdateOnMetricNoMsg Update the metrics without any information received by the caller
-func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
+func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric metrics.Metric) {
 	log.GetInstance().Debug("Calling Update on metrics")
 	err := metric.Update(plugin.GetRpc())
 	if err != nil {
@@ -106,7 +107,7 @@ func (plugin *MetricsPlugin) callUpdateOnMetricNoMsg(metric Metric) {
 	}
 }
 
-func (plugin *MetricsPlugin) updateAndUploadMetric(metric Metric) {
+func (plugin *MetricsPlugin) updateAndUploadMetric(metric metrics.Metric) {
 	log.GetInstance().Info("Calling update and upload metric")
 	plugin.callUpdateOnMetricNoMsg(metric)
 	if err := metric.UploadOnRepo(plugin.Server, plugin.GetRpc()); err != nil {
@@ -141,7 +142,7 @@ func (plugin *MetricsPlugin) RegisterOneTimeEvt(after string) {
 		log.GetInstance().Debug("Calling on time function function")
 		// FIXME: Should C-Lightning send a on init event like notification?
 		for _, metric := range plugin.Metrics {
-			go func(instance *MetricsPlugin, metric Metric) {
+			go func(instance *MetricsPlugin, metric metrics.Metric) {
 				err := metric.OnInit(instance.GetRpc())
 				if err != nil {
 					log.GetInstance().Error(fmt.Sprintf("Error during on init call: %s", err))

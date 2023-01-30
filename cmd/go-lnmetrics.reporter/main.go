@@ -3,11 +3,12 @@ package main
 import (
 	"runtime/debug"
 
-	metrics "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/plugin"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 )
 
-var metricsPlugin metrics.MetricsPlugin
+var metricsPlugin plugin.MetricsPlugin
 
 func main() {
 	defer func() {
@@ -18,10 +19,10 @@ func main() {
 		}
 	}()
 
-	metricsPlugin = metrics.MetricsPlugin{
+	metricsPlugin = plugin.MetricsPlugin{
 		Metrics: make(map[int]metrics.Metric), Rpc: nil}
 
-	plugin, err := metrics.ConfigureCLNPlugin[*metrics.MetricsPlugin](&metricsPlugin)
+	plugin, err := plugin.ConfigureCLNPlugin[*plugin.MetricsPlugin](&metricsPlugin)
 	if err != nil {
 		panic(err)
 	}

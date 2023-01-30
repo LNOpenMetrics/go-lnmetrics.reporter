@@ -1,4 +1,4 @@
-package plugin
+package metrics
 
 import (
 	"encoding/json"
@@ -100,7 +100,7 @@ func TestJSONDeserializzation(t *testing.T) {
       }
    ]
 }`
-	var metric MetricOne
+	var metric RawLocalScore
 	err := json.Unmarshal([]byte(jsonString), &metric)
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
@@ -160,7 +160,7 @@ func TestJSONMigrationFrom0to1One(t *testing.T) {
       }
    ]
 }`
-	var metric MetricOne
+	var metric RawLocalScore
 	err := json.Unmarshal([]byte(jsonString), &metric)
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
@@ -219,7 +219,7 @@ func TestJSONMigrationFrom0to1Two(t *testing.T) {
       }
    ]
 }`
-	var metric MetricOne
+	var metric RawLocalScore
 	err := json.Unmarshal([]byte(jsonString), &metric)
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)
@@ -284,7 +284,7 @@ func TestJSONMigrationFrom0to1DevPrefix(t *testing.T) {
       }
    ]
 }`
-	var metric MetricOne
+	var metric RawLocalScore
 	err := json.Unmarshal([]byte(jsonString), &metric)
 	if err != nil {
 		t.Errorf("Test failure cause from the following error %s", err)

@@ -1,4 +1,4 @@
-package plugin
+package metrics
 
 import (
 	"errors"
@@ -25,15 +25,15 @@ import (
 )
 
 // NewMetricOne This method is required by the interface
-func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *MetricOne {
-	return &MetricOne{
+func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginDatabase) *RawLocalScore {
+	return &RawLocalScore{
 		id:        1,
 		Version:   4,
 		Name:      MetricsSupported[1],
 		NodeID:    nodeId,
 		NodeAlias: "unknown",
 		Network:   "unknown",
-		OSInfo: &osInfo{
+		OSInfo: &OSInfo{
 			OS:           sysInfo.OS.Name,
 			Version:      sysInfo.OS.Version,
 			Architecture: sysInfo.Architecture,
@@ -44,8 +44,8 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 		},
 		Address:      make([]*NodeAddress, 0),
 		Timezone:     sysInfo.Timezone,
-		UpTime:       make([]*status, 0),
-		ChannelsInfo: make(map[string]*statusChannel),
+		UpTime:       make([]*Status, 0),
+		ChannelsInfo: make(map[string]*StatusChannel),
 		Color:        "",
 		Storage:      storage,
 		PeerSnapshot: make(map[string]*model.ListPeersPeer),
@@ -53,7 +53,7 @@ func NewMetricOne(nodeId string, sysInfo sysinfo.HostInfo, storage db.PluginData
 	}
 }
 
-func (instance *MetricOne) MetricName() *string {
+func (instance *RawLocalScore) MetricName() *string {
 	metricName := MetricsSupported[1]
 	return &metricName
 }
@@ -62,7 +62,7 @@ func (instance *MetricOne) MetricName() *string {
 // Note that it is required implementing a required strategy only if the same
 // properties will change during the time, if something's it is only add, we
 // don't have anything's to migrate.
-func (instance *MetricOne) Migrate(payload map[string]any) error {
+func (instance *RawLocalScore) Migrate(payload map[string]any) error {
 	version, found := payload["version"]
 
 	if !found || int(version.(float64)) < 1 {
@@ -85,7 +85,7 @@ func (instance *MetricOne) Migrate(payload map[string]any) error {
 	return nil
 }
 
-func (instance *MetricOne) snapshotListPeers(lightning cln4go.Client) error {
+func (instance *RawLocalScore) snapshotListPeers(lightning cln4go.Client) error {
 	instance.PeerSnapshot = make(map[string]*model.ListPeersPeer)
 	listPeers, err := ln.ListPeers(lightning, nil)
 	if err != nil {
@@ -104,7 +104,7 @@ func (instance *MetricOne) snapshotListPeers(lightning cln4go.Client) error {
 }
 
 // Generic Plugin callback that it is run each time that the plugin need to recording a new event.
-func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*status, error) {
+func (instance *RawLocalScore) onEvent(nameEvent string, lightning cln4go.Client) (*Status, error) {
 	if err := instance.snapshotListPeers(lightning); err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 		PerMSat: uint64(feePerSat.(float64)),
 	}
 
-	status := &status{
+	status := &Status{
 		Event:     nameEvent,
 		Timestamp: time.Now().Unix(),
 		Channels:  channelsSummary,
@@ -189,7 +189,7 @@ func (instance *MetricOne) onEvent(nameEvent string, lightning cln4go.Client) (*
 }
 
 // OnInit One time callback called from the lightning implementation
-func (instance *MetricOne) OnInit(lightning cln4go.Client) error {
+func (instance *RawLocalScore) OnInit(lightning cln4go.Client) error {
 	getInfo, err := ln.GetInfo(lightning)
 	if err != nil {
 		log.GetInstance().Error(fmt.Sprintf("Error during the OnInit method; %s", err))
@@ -228,7 +228,7 @@ func (instance *MetricOne) OnInit(lightning cln4go.Client) error {
 	return instance.MakePersistent()
 }
 
-func (instance *MetricOne) Update(lightning cln4go.Client) error {
+func (instance *RawLocalScore) Update(lightning cln4go.Client) error {
 	status, err := instance.onEvent("on_update", lightning)
 	if err != nil {
 		return err
@@ -241,7 +241,7 @@ func (instance *MetricOne) Update(lightning cln4go.Client) error {
 	return instance.MakePersistent()
 }
 
-func (instance *MetricOne) UpdateWithMsg(message *Msg, lightning cln4go.Client) error {
+func (instance *RawLocalScore) UpdateWithMsg(message *Msg, lightning cln4go.Client) error {
 	if event, ok := message.params["event"]; ok {
 		status, err := instance.onEvent(fmt.Sprintf("%s", event), lightning)
 		if err != nil {
@@ -257,7 +257,7 @@ func (instance *MetricOne) UpdateWithMsg(message *Msg, lightning cln4go.Client) 
 	return nil
 }
 
-func (instance *MetricOne) MakePersistent() error {
+func (instance *RawLocalScore) MakePersistent() error {
 	instanceJson, err := instance.ToJSON()
 	if err != nil {
 		log.GetInstance().Errorf("JSON error %s", err)
@@ -270,10 +270,10 @@ func (instance *MetricOne) MakePersistent() error {
 	return nil
 }
 
-func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
+func (instance *RawLocalScore) OnStop(msg *Msg, lightning cln4go.Client) error {
 	log.GetInstance().Debug("On close event on metrics called")
 	// FIXME: Check if the values are empty, if yes, try a solution  to avoid to push empty payload.
-	var lastMetric MetricOne
+	var lastMetric RawLocalScore
 	jsonLast, err := instance.Storage.LoadLastMetricOne()
 	if err != nil {
 		return err
@@ -283,7 +283,7 @@ func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 	}
 	now := time.Now().Unix()
 	lastStatus := lastMetric.UpTime[len(lastMetric.UpTime)-1]
-	statusItem := &status{
+	statusItem := &Status{
 		Event:     "on_close",
 		Timestamp: now,
 		Channels:  lastStatus.Channels,
@@ -299,8 +299,22 @@ func (instance *MetricOne) OnStop(msg *Msg, lightning cln4go.Client) error {
 	return nil
 }
 
+// ToMap encode the object into a map
+func (self *RawLocalScore) ToMap() (map[string]any, error) {
+	var result map[string]any
+	bytes, err := self.Encoder.EncodeToByte(self)
+	if err != nil {
+		return nil, err
+	}
+
+	if err != self.Encoder.DecodeFromBytes(bytes, &result) {
+		return nil, err
+	}
+	return result, nil
+}
+
 // ToJSON Convert the MetricOne structure to a JSON string.
-func (instance *MetricOne) ToJSON() (string, error) {
+func (instance *RawLocalScore) ToJSON() (string, error) {
 	json, err := instance.Encoder.EncodeToByte(&instance)
 	if err != nil {
 		log.GetInstance().Error(err)
@@ -313,14 +327,14 @@ func (instance *MetricOne) ToJSON() (string, error) {
 // we should reset the status of the plugin
 // in particular the status of the various cache
 // that will speed up the plugin.
-func (self *MetricOne) resetState() {
-	self.UpTime = make([]*status, 0)
-	self.ChannelsInfo = make(map[string]*statusChannel)
+func (self *RawLocalScore) resetState() {
+	self.UpTime = make([]*Status, 0)
+	self.ChannelsInfo = make(map[string]*StatusChannel)
 	self.PeerSnapshot = make(map[string]*model.ListPeersPeer)
 }
 
 // InitOnRepo Contact the server and make an init the node.
-func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.Client) error {
+func (instance *RawLocalScore) InitOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	log.GetInstance().Info("Init plugin on repository")
 	err := client.GetNodeMetadata(instance.NodeID, instance.Network)
 	if err != nil {
@@ -361,7 +375,7 @@ func (instance *MetricOne) InitOnRepo(client *graphql.Client, lightning cln4go.C
 }
 
 // UploadOnRepo Contact the server and make an update request
-func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go.Client) error {
+func (instance *RawLocalScore) UploadOnRepo(client *graphql.Client, lightning cln4go.Client) error {
 	payload, err := instance.ToJSON()
 	if err != nil {
 		return err
@@ -385,7 +399,7 @@ func (instance *MetricOne) UploadOnRepo(client *graphql.Client, lightning cln4go
 }
 
 // checkChannelInCache check if a node with channel_id is inside the gossip map or in the cache
-func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelID string) (*cache.NodeInfoCache, error) {
+func (instance *RawLocalScore) checkChannelInCache(lightning cln4go.Client, channelID string) (*cache.NodeInfoCache, error) {
 	var nodeInfo cache.NodeInfoCache
 	if cache.GetInstance().IsInCache(channelID) {
 		bytes, err := cache.GetInstance().GetFromCache(channelID)
@@ -417,7 +431,7 @@ func (instance *MetricOne) checkChannelInCache(lightning cln4go.Client, channelI
 }
 
 // makeChannelsSummary Make a summary of all the channels information that the node have a channels with.
-func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels []*model.ListFundsChannel) (*ChannelsSummary, error) {
+func (instance *RawLocalScore) makeChannelsSummary(lightning cln4go.Client, channels []*model.ListFundsChannel) (*ChannelsSummary, error) {
 	channelsSummary := &ChannelsSummary{
 		TotChannels: 0,
 		Summary:     make([]*ChannelSummary, 0),
@@ -465,7 +479,7 @@ func (instance *MetricOne) makeChannelsSummary(lightning cln4go.Client, channels
 	return channelsSummary, nil
 }
 
-func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards []*model.Forward) (*PaymentsSummary, error) {
+func (instance *RawLocalScore) makePaymentsSummary(lightning cln4go.Client, forwards []*model.Forward) (*PaymentsSummary, error) {
 	statusPayments := PaymentsSummary{
 		Completed: 0,
 		Failed:    0,
@@ -486,7 +500,7 @@ func (instance *MetricOne) makePaymentsSummary(lightning cln4go.Client, forwards
 }
 
 // private method of the module
-func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels []*model.ListFundsChannel, event string) error {
+func (instance *RawLocalScore) collectInfoChannels(lightning cln4go.Client, channels []*model.ListFundsChannel, event string) error {
 	cache := make(map[string]bool)
 	cachePing := make(map[string]int64)
 	for _, channel := range channels {
@@ -533,7 +547,7 @@ func (instance *MetricOne) collectInfoChannels(lightning cln4go.Client, channels
 	return nil
 }
 
-func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channelID string) ([]string, error) {
+func (instance *RawLocalScore) getChannelDirections(lightning cln4go.Client, channelID string) ([]string, error) {
 	directions := make([]string, 0)
 
 	channels, err := ln.ListChannels(lightning, &channelID)
@@ -555,7 +569,7 @@ func (instance *MetricOne) getChannelDirections(lightning cln4go.Client, channel
 	return directions, nil
 }
 
-func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
+func (instance *RawLocalScore) collectInfoChannel(lightning cln4go.Client,
 	channel *model.ListFundsChannel, event string, cachePing map[string]int64) error {
 
 	shortChannelId := channel.ShortChannelId
@@ -602,16 +616,16 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 			return fmt.Errorf("error: channel not exist for direction %s", direction)
 		}
 		// A new channels found
-		channelStat := channelStatus{
+		channelStat := ChannelStatus{
 			Event:     event,
 			Timestamp: timestamp,
 			Status:    channel.State,
 		}
 
 		if !found {
-			upTimes := make([]*channelStatus, 1)
+			upTimes := make([]*ChannelStatus, 1)
 			upTimes[0] = &channelStat
-			newInfoChannel := statusChannel{
+			newInfoChannel := StatusChannel{
 				ChannelId:  *shortChannelId,
 				NodeId:     info.NodeId,
 				NodeAlias:  info.Alias,
@@ -638,7 +652,7 @@ func (instance *MetricOne) collectInfoChannel(lightning cln4go.Client,
 	return nil
 }
 
-func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string) bool {
+func (instance *RawLocalScore) peerConnected(lightning cln4go.Client, nodeId string) bool {
 	peer, found := instance.PeerSnapshot[nodeId]
 	if !found {
 		log.GetInstance().Infof("peer with node id %s not found", nodeId)
@@ -657,8 +671,8 @@ func (instance *MetricOne) peerConnected(lightning cln4go.Client, nodeId string)
 // as return:
 // map[string]*ChannelsInfo: Information on how the channel with a specific short channel id is splitted.
 // error: If any error during this operation occurs
-func (instance *MetricOne) getChannelInfo(lightning cln4go.Client,
-	channel *model.ListFundsChannel, prevInstance *statusChannel) (map[string]*ChannelInfo, error) {
+func (instance *RawLocalScore) getChannelInfo(lightning cln4go.Client,
+	channel *model.ListFundsChannel, prevInstance *StatusChannel) (map[string]*ChannelInfo, error) {
 
 	result := make(map[string]*ChannelInfo)
 	subChannels, err := ln.ListChannels(lightning, channel.ShortChannelId)
