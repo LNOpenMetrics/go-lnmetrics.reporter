@@ -7,6 +7,7 @@ import (
 
 	maker "github.com/LNOpenMetrics/go-lnmetrics.reporter/init/persistence"
 	pluginDB "github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/db"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/graphql"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
 	sysinfo "github.com/elastic/go-sysinfo"
@@ -99,8 +100,8 @@ func parseOptionsPlugin[T MetricsPluginState](plugin *cln4go.Plugin[T]) error {
 	return nil
 }
 
-func loadMetricIfExist[T MetricsPluginState](plugin *cln4go.Plugin[T], id int) (Metric, error) {
-	metricName, found := MetricsSupported[id]
+func loadMetricIfExist[T MetricsPluginState](plugin *cln4go.Plugin[T], id int) (metrics.Metric, error) {
+	metricName, found := metrics.MetricsSupported[id]
 	if !found {
 		log.GetInstance().Infof("Metric with id %d not supported", id)
 		return nil, fmt.Errorf("Metric with id %d not supported", id)
@@ -115,7 +116,7 @@ func loadMetricIfExist[T MetricsPluginState](plugin *cln4go.Plugin[T], id int) (
 	}
 }
 
-func loadLastMetricOne[T MetricsPluginState](plugin *cln4go.Plugin[T]) (*MetricOne, error) {
+func loadLastMetricOne[T MetricsPluginState](plugin *cln4go.Plugin[T]) (*metrics.RawLocalScore, error) {
 	metricsPlugin := plugin.GetState()
 	metricDb, err := metricsPlugin.GetStorage().LoadLastMetricOne()
 	if err != nil {
@@ -126,11 +127,11 @@ func loadLastMetricOne[T MetricsPluginState](plugin *cln4go.Plugin[T]) (*MetricO
 			log.GetInstance().Errorf("Error during get the system information, error description %s", err)
 			return nil, err
 		}
-		one := NewMetricOne("", sys.Info(), metricsPlugin.GetStorage())
+		one := metrics.NewMetricOne("", sys.Info(), metricsPlugin.GetStorage())
 		return one, nil
 	}
 	log.GetInstance().Info("Metrics One available on DB, loading it.")
-	var metric MetricOne
+	var metric metrics.RawLocalScore
 	/// FIXME: try to use the plugin encoder here?
 	err = json.Unmarshal([]byte(*metricDb), &metric)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/cache"
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
 	jsonv2 "github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/json"
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/pkg/trace"
 	"github.com/LNOpenMetrics/lnmetrics.utils/log"
@@ -37,7 +38,7 @@ func (self *OnShoutdown[T]) Call(plugin *cln4go.Plugin[T], payload map[string]an
 	// Share to all the metrics, so we need a global method that iterate over the metrics map
 	params := make(map[string]any)
 	params["timestamp"] = time.Now()
-	msg := Msg{"stop", params}
+	msg := metrics.NewMsg("stop", params)
 	for _, metric := range plugin.State.GetMetrics() {
 		plugin.GetState().CallOnStopOnMetrics(metric, &msg)
 	}
@@ -64,7 +65,7 @@ type info struct {
 func (self *LNMetricsInfoRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
 	metricsSupp := make([]string, 0)
 	for key := range plugin.GetState().GetMetrics() {
-		metricsSupp = append(metricsSupp, MetricsSupported[key])
+		metricsSupp = append(metricsSupp, metrics.MetricsSupported[key])
 	}
 	goInfo := sysinfo.Go()
 	resp := info{

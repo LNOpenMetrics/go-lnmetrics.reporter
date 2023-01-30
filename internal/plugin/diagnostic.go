@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 
+	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
 	cln4go "github.com/vincenzopalazzo/cln4go/plugin"
 )
 
@@ -13,7 +14,7 @@ func NewRawLocalScoreRPC[T MetricsPluginState]() *RawLocalScoreRPC[T] {
 }
 
 func (instance *RawLocalScoreRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
-	metric, found := plugin.GetState().GetMetrics()[RawLocalScoreID]
+	metric, found := plugin.GetState().GetMetrics()[metrics.RawLocalScoreID]
 	if !found {
 		return nil, fmt.Errorf("Metric with id %d not found", 1)
 	}
@@ -25,10 +26,7 @@ type ForceUpdateRPC[T MetricsPluginState] struct{}
 
 func (instance *ForceUpdateRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
 	for _, metric := range plugin.GetState().GetMetrics() {
-		msg := Msg{
-			cmd:    "plugin_rpc_method",
-			params: map[string]any{"event": "on_force_update"},
-		}
+		msg := metrics.NewMsg("dev-collect", map[string]any{"event": "on_force_update"})
 		plugin.GetState().CallUpdateOnMetric(metric, &msg)
 	}
 	response := map[string]any{
