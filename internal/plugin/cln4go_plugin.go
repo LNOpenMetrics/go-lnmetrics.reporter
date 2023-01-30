@@ -23,7 +23,7 @@ func ConfigureCLNPlugin[T MetricsPluginState](state T) (*cln4go.Plugin[T], error
 		"Disable the usage of proxy in case only for the go-lnmmetrics.reporter", false)
 	plugin.RegisterNotification("shutdown", &OnShoutdown[T]{})
 
-	plugin.RegisterRPCMethod("metric_one", "", "return the metrics calculated by the plugin", NewMetricPlugin[T]())
+	plugin.RegisterRPCMethod("raw-local-score", "", "return the local reputation raw data collected by the plugin", NewRawLocalScoreRPC[T]())
 	// FIXME: register the force rpc command only in developer mode
 	plugin.RegisterRPCMethod("lnmetrics-force-update", "", "trigget the update to the server (caution)", &ForceUpdateRPC[T]{})
 	plugin.RegisterRPCMethod("lnmetrics-info", "", "return the information regarding the lnmetrics plugin", &LNMetricsInfoRPC[T]{})
@@ -69,7 +69,7 @@ func (self *LNMetricsInfoRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[stri
 	goInfo := sysinfo.Go()
 	resp := info{
 		Name:         "go-lnmetrics.reporter",
-		Version:      "v0.0.5-rc1",
+		Version:      "v0.0.5-rc2",
 		LangVersion:  goInfo.Version,
 		Architecture: goInfo.Arch,
 		MaxProcs:     goInfo.MaxProcs,
