@@ -379,17 +379,20 @@ func (instance *RawLocalScore) InitOnRepo(client *graphql.Client, lightning cln4
 
 // UploadOnRepo Contact the server and make an update request
 func (instance *RawLocalScore) UploadOnRepo(client *graphql.Client, lightning cln4go.Client) error {
-	payload, err := instance.ToJSON()
+	// This method is called after we run the update event
+	// and we clean up the instance after storing the result
+	// inside the database.
+	payload, err := instance.Storage.LoadLastMetricOne()
 	if err != nil {
 		return err
 	}
-	toSign := sha256.SHA256(&payload)
+	toSign := sha256.SHA256(payload)
 	log.GetInstance().Info(fmt.Sprintf("Hash of the paylad: %s", toSign))
 	signPayload, err := ln.SignMessage(lightning, &toSign)
 	if err != nil {
 		return err
 	}
-	if err := client.UploadMetric(instance.NodeID, &payload, signPayload.ZBase); err != nil {
+	if err := client.UploadMetric(instance.NodeID, payload, signPayload.ZBase); err != nil {
 		log.GetInstance().Errorf("Error: %s", err)
 		return err
 	}
