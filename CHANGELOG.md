@@ -1,3 +1,15 @@
+# v0.0.6-rc2
+
+## Fixed
+- fix race condition caused by the gb (maybe) ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/f5999d9c8a56979dee5cc0b71f2c4cedc8c0cbe4)). @vincenzopalazzo 31-01-2023
+- allow the rpc method to query only old score ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/0c98b7e99b9adec8caa8296de6448cf6724e73f6)). @vincenzopalazzo 31-01-2023
+- code metrics code and rename metric one to rawLocalRep ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/4d6959e703e8cc96f0b92a3853e5ee8f9c4f731e)). @vincenzopalazzo 30-01-2023
+
+## Added
+- add ToMap function in the Metric interface ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/3d9d240e2cd3e9b612f0547ce4584e823367d4ce)). @vincenzopalazzo 30-01-2023
+- refactoring metric one to raw local score ([commit](https://github.com/LNOpenMetrics/go-lnmetrics.reporter/commit/faff772f05bce6f6e2f3e05970ada271a8757b04)). @vincenzopalazzo 30-01-2023
+
+
 # v0.0.6-rc1
 
 ## Fixed
