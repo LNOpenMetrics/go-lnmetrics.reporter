@@ -91,6 +91,7 @@ func (instance *LevelDB) StoreMetricOneSnapshot(timestamp int64, payload *string
 	if err := instance.PutValue(key, payload); err != nil {
 		return err
 	}
+
 	timestampStr := fmt.Sprint(timestamp)
 	keyLastUpt := strings.Join([]string{"metric_one", "last"}, "/")
 	if err := instance.PutValue(keyLastUpt, &timestampStr); err != nil {

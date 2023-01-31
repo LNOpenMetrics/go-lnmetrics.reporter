@@ -28,7 +28,7 @@ type GraphQLResponse struct {
 }
 
 type Client struct {
-	// The graph ql can contains a list of server where
+	// The graphql can contains a list of server where
 	// make the request.
 	BaseUrl []string
 	// Token to autenticate to the server
@@ -84,29 +84,29 @@ func isOnionUrl(url string) bool {
 func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse, error) {
 	jsonValue, err := json.Marshal(query)
 	if err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+		log.GetInstance().Errorf("Error: %s", err)
 		return nil, err
 	}
 
 	failure := 0
 	responses := make([]*GraphQLResponse, 0)
 	for _, url := range instance.BaseUrl {
-		log.GetInstance().Info(fmt.Sprintf("Request to URL %s", url))
+		log.GetInstance().Infof("Request to URL %s", url)
 		if !instance.WithProxy && isOnionUrl(url) {
-			log.GetInstance().Debug(fmt.Sprintf("Skipped request to url %s because the proxy it is not configured in the plugin", url))
+			log.GetInstance().Debugf("Skipped request to url %s because the proxy it is not configured in the plugin", url)
 			continue
 		}
 		request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonValue))
 		if err != nil {
 			failure++
-			log.GetInstance().Error(fmt.Sprintf("Error with the message \"%s\" during the request to endpoint %s", err, url))
+			log.GetInstance().Errorf("Error with the message \"%s\" during the request to endpoint %s", err, url)
 			continue
 		}
 		request.Header.Set("Content-Type", "application/json")
 		response, err := instance.Client.Do(request)
 		if err != nil {
 			failure++
-			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
+			log.GetInstance().Errorf("error with the message \"%s\" during the request to endpoint %s", err, url)
 			continue
 		}
 
@@ -118,24 +118,25 @@ func (instance *Client) MakeRequest(query map[string]string) ([]*GraphQLResponse
 
 		defer func() {
 			if err := response.Body.Close(); err != nil {
-				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+				log.GetInstance().Errorf("Error: %s", err)
 			}
 		}()
+
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			failure++
-			log.GetInstance().Error(fmt.Sprintf("error with the message \"%s\" during the request to endpoint %s", err, url))
+			log.GetInstance().Errorf("error with the message \"%s\" during the request to endpoint %s", err, url)
 			continue
 		}
 		var respModel GraphQLResponse
 		if err := json.Unmarshal([]byte(result), &respModel); err != nil {
 			failure++
 			log.GetInstance().Infof("Raw server response: %s", result)
-			log.GetInstance().Error(fmt.Sprintf("Error during graphql response: %s", err))
+			log.GetInstance().Errorf("Error during graphql response: %s", err)
 			continue
 		}
 		responses = append(responses, &respModel)
-		log.GetInstance().Debug(fmt.Sprintf("Result from server %s", result))
+		log.GetInstance().Debugf("Result from server %s", result)
 	}
 
 	if failure == len(instance.BaseUrl) {
