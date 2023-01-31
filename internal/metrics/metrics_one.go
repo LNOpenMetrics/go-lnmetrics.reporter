@@ -85,6 +85,9 @@ func (instance *RawLocalScore) Migrate(payload map[string]any) error {
 	return nil
 }
 
+// FIXME: this is bad because we can not cache it forever, but it is needed
+// just to speed up some cln performance, so we allow outdata peer data like
+// address, alias, features.
 func (instance *RawLocalScore) snapshotListPeers(lightning cln4go.Client) error {
 	instance.PeerSnapshot = make(map[string]*model.ListPeersPeer)
 	listPeers, err := ln.ListPeers(lightning, nil)
@@ -501,6 +504,10 @@ func (instance *RawLocalScore) makePaymentsSummary(lightning cln4go.Client, forw
 
 // private method of the module
 func (instance *RawLocalScore) collectInfoChannels(lightning cln4go.Client, channels []*model.ListFundsChannel, event string) error {
+	if len(channels) == 0 {
+		log.GetInstance().Debug("we are without channels so we exist now")
+		return nil
+	}
 	cache := make(map[string]bool)
 	cachePing := make(map[string]int64)
 	for _, channel := range channels {
@@ -509,11 +516,12 @@ func (instance *RawLocalScore) collectInfoChannels(lightning cln4go.Client, chan
 		// we skip this type of state
 		case "CHANNELD_AWAITING_LOCKIN", "DUALOPEND_OPEN_INIT",
 			"DUALOPEND_AWAITING_LOCKIN":
+			log.GetInstance().Debugf("node (`%s`) with a channel in a state %s", channel.PeerId, channel.State)
 			continue
 		default:
 			if err := instance.collectInfoChannel(lightning, channel, event, cachePing); err != nil {
 				// void returning error here? We can continue to make the analysis over the channels
-				log.GetInstance().Error(fmt.Sprintf("Error: %s", err))
+				log.GetInstance().Errorf("Error: %s", err)
 				return err
 			}
 			if channel.ShortChannelId == nil {
@@ -655,7 +663,7 @@ func (instance *RawLocalScore) collectInfoChannel(lightning cln4go.Client,
 func (instance *RawLocalScore) peerConnected(lightning cln4go.Client, nodeId string) bool {
 	peer, found := instance.PeerSnapshot[nodeId]
 	if !found {
-		log.GetInstance().Infof("peer with node id %s not found", nodeId)
+		log.GetInstance().Infof("peer with node id %s not found in the snapshot", nodeId)
 		return false
 	}
 	log.GetInstance().Infof("peer `%s` is connected `%v`", nodeId, peer.Connected)

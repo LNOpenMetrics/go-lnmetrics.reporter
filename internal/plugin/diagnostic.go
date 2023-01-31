@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/LNOpenMetrics/go-lnmetrics.reporter/internal/metrics"
@@ -14,11 +15,16 @@ func NewRawLocalScoreRPC[T MetricsPluginState]() *RawLocalScoreRPC[T] {
 }
 
 func (instance *RawLocalScoreRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[string]any) (map[string]any, error) {
-	metric, found := plugin.GetState().GetMetrics()[metrics.RawLocalScoreID]
-	if !found {
+	metricStr, err := plugin.GetState().GetStorage().LoadLastMetricOne()
+	if err != nil {
 		return nil, fmt.Errorf("Metric with id %d not found", 1)
 	}
-	return metric.ToMap()
+	// FIXME get the encoder from a plugin with GetEncoder and decode the string into a map
+	var metric map[string]any
+	if err := json.Unmarshal([]byte(*metricStr), &metric); err != nil {
+		return nil, err
+	}
+	return metric, nil
 }
 
 // ForceUpdateRPC enable the force update command
