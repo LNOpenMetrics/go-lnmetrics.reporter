@@ -11,7 +11,7 @@ require (
 	github.com/vincenzopalazzo/cln4go/client v0.0.0-20221204134136-f782296547e8
 	github.com/vincenzopalazzo/cln4go/comm v0.0.0-20221204134136-f782296547e8
 	github.com/vincenzopalazzo/cln4go/plugin v0.0.0-20221204134136-f782296547e8
-	golang.org/x/net v0.4.0
+	golang.org/x/net v0.7.0
 )
 
 require (
@@ -22,8 +22,7 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
-	github.com/vincenzopalazzo/cln4go v0.0.1-beta.8 // indirect
 	github.com/vincenzopalazzo/cpstl/go v0.0.0-20221204131531-d0659db4dd2a // indirect
-	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 	howett.net/plist v1.0.0 // indirect
 )
