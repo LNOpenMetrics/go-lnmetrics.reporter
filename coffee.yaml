@@ -1,0 +1,9 @@
+---
+plugin:
+  name: lnmetrics
+  version: 0.0.6-rc2
+  lang: go
+  install: |
+    make dep
+    make coffee
+  main: go-lnmetrics

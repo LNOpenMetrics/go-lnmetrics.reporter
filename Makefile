@@ -25,6 +25,9 @@ check-dev:
 build:
 	env GOOS=$(OS) GOARCH=$(ARCH) GOARM=$(ARM) $(CC) build -o $(NAME)-$(OS)-$(ARCH) cmd/go-lnmetrics.reporter/main.go
 
+coffee:
+	$(CC) build -o $(NAME) -ldflags "-s -w" cmd/go-lnmetrics.reporter/main.go
+
 dep:
 	$(CC) get -u all
 
