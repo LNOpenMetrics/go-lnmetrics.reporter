@@ -111,8 +111,9 @@ func (plugin *MetricsPlugin) updateAndUploadMetric(metric metrics.Metric) {
 	log.GetInstance().Info("Calling update and upload metric")
 	plugin.callUpdateOnMetricNoMsg(metric)
 	if err := metric.UploadOnRepo(plugin.Server, plugin.GetRpc()); err != nil {
-		log.GetInstance().Error(fmt.Sprintf("Error %s", err))
+		log.GetInstance().Errorf("Error %s", err)
 	}
+	log.GetInstance().Info("Metrics shipped!")
 }
 
 // RegisterRecurrentEvt Register internal recurrent methods
@@ -123,7 +124,8 @@ func (plugin *MetricsPlugin) RegisterRecurrentEvt(after string) {
 	_, err := plugin.Cron.AddFunc(after, func() {
 		log.GetInstance().Info("Update and Uploading metrics")
 		for _, metric := range plugin.Metrics {
-			go plugin.updateAndUploadMetric(metric)
+			// FIXME: we can do this in parallel, but not now :)
+			plugin.updateAndUploadMetric(metric)
 		}
 	})
 	if err != nil {
