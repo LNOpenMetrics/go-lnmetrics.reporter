@@ -50,7 +50,11 @@ func ParseDeprecatedMsat(msat any) uint64 {
 	if msat != nil {
 		switch val := msat.(type) {
 		case string:
-			res, _ := ParseMsatStrToInt(&val)
+			res, err := ParseMsatStrToInt(&val)
+			if err != nil {
+				log.GetInstance().Errorf("parsing msat string fails with error %s", err)
+				log.GetInstance().Errorf("original value is %s", val)
+			}
 			return res
 		default:
 			res, _ := val.(float64)
@@ -106,8 +110,8 @@ type ListChannelsChannel struct {
 	LastUpdate          uint64 `json:"last_update"`
 	BaseFeeMillisatoshi uint64 `json:"base_fee_millisatoshi"`
 	FeePerMillionth     uint64 `json:"fee_per_millionth"`
-	HtlcMinimumMsat     uint64 `json:"minimum_htlc_out_msat"`
-	HtlcMaximumMsat     uint64 `json:"maximum_htlc_out_msat"`
+	HtlcMinimumMsat     uint64 `json:"minimum_htlc_msat"`
+	HtlcMaximumMsat     uint64 `json:"maximum_htlc_msat"`
 }
 
 func (self *ListChannelsChannel) HtlcMinMsat() *string {
