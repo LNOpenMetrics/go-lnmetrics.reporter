@@ -776,19 +776,21 @@ func (instance *RawLocalScore) getChannelInfo(lightning cln4go.Client,
 				paymentInfo.Direction = ChannelDirections[1]
 			}
 
+			// FIXME: make a double check on how to find a direction of a payment.
+			//
 			/// if the direction is valid and if the direction
 			// is different from the channel direction we skip this
 			// forwarding from the counting
 			if channelInfo.Direction != "UNKNOWN" &&
 				paymentInfo.Direction != channelInfo.Direction {
-				log.GetInstance().Infof("New forwarding found but in the wrong direction, %s -> %s", forward.InChannel, forward.OutChannel)
-				log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
-				log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
+				//log.GetInstance().Infof("New forwarding found but in the wrong direction, %s -> %s", forward.InChannel, forward.OutChannel)
+				//log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
+				//log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 				continue
 			}
-			log.GetInstance().Infof("New forwarding found but in the correct direction, %s -> %s", forward.InChannel, forward.OutChannel)
-			log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
-			log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
+			//log.GetInstance().Infof("New forwarding found but in the correct direction, %s -> %s", forward.InChannel, forward.OutChannel)
+			//log.GetInstance().Infof("Information on the our channel Channel id %s with %s", *channel.ShortChannelId, channelInfo.Alias)
+			//log.GetInstance().Infof("Channel direction calculated %s", channelInfo.Direction)
 
 			channelInfo.Forwards = append(channelInfo.Forwards, paymentInfo)
 

@@ -70,7 +70,7 @@ func (self *LNMetricsInfoRPC[T]) Call(plugin *cln4go.Plugin[T], payload map[stri
 	goInfo := sysinfo.Go()
 	resp := info{
 		Name:         "go-lnmetrics.reporter",
-		Version:      "v0.0.5-rc2",
+		Version:      "v0.0.6-rc3",
 		LangVersion:  goInfo.Version,
 		Architecture: goInfo.Arch,
 		MaxProcs:     goInfo.MaxProcs,
