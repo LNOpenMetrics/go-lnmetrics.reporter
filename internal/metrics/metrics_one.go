@@ -612,7 +612,9 @@ func (instance *RawLocalScore) collectInfoChannel(lightning cln4go.Client,
 
 		infoMap, err := instance.getChannelInfo(lightning, channel, infoChannel)
 		if err != nil {
-			log.GetInstance().Error(fmt.Sprintf("Error during get the information about the channel: %s", err))
+			log.GetInstance().Errorf("Error during get the information about the channel: %s", err)
+			str, _ := instance.Encoder.EncodeToString(channel)
+			log.GetInstance().Errorf("channel under analysis: `%s`", *str)
 			return err
 		}
 
